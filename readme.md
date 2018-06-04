@@ -12,7 +12,11 @@
 
 **msgf-percolator-lfq.knwf** - KNIME workflow that executes OpenMS tools for label-free quantification
 
-**parsePPD.py** - Script to convert Plasma Proteome Database to FASTA format
+**parsePPD.py** - Script to convert Plasma Proteome Database to FASTA format and extract concentration data
+
+**gravy.py** - functions to calculate GRAVY and amino acid content
+
+**shrinkTest.py** - multithreaded permutation test for shrinkage measure
 
 ## Publication
 

@@ -7,20 +7,27 @@ Compile Plasma Proteome Database into FASTA format
 @author: vgor
 """
 
-from os import walk, stat
-from lxml import etree
-from pandas import DataFrame
-from io import StringIO
-from pyteomics import fasta
 import re
 import requests
 import numpy as np
+from os import walk, stat
+from io import StringIO
+from lxml import etree
+from pandas import DataFrame
+from pyteomics import fasta
 
 xmlPath = "E:\\Fasta\\PlasmaProteomeDB\\Experimental_evidence\\"
 fastaPath = "E:\\Fasta\\"
+concentrationPath = "E:\\Fasta\\PlasmaProteomeDB\\Protein_concentration.xml"
+resDir = "E:\\RawData\\20161120_NP\\res\\"
 
 #ill-formed XML tag
-invalidXMLTag = re.compile('(<\/*)(\w+(?:\s\w+(?!\s*=\s*".*?"))+)((?:\s\w+\s*=\s*".*?")*)(\/*>)')
+#groups are
+#0 - opening brace
+#1 - element name with spaces
+#2 - attributes
+#3 - closing brace
+invalidXMLTag = re.compile(r'(<\/*)(\w+(?:\s\w+(?!\s*=\s*".*?"))+)((?:\s\w+\s*=\s*".*?")*)(\/*>)')
 
 def curePPDSyntax(filename):
     """
@@ -34,16 +41,16 @@ def curePPDSyntax(filename):
         for match in invalidXMLTag.finditer(text):
             parts = match.groups()
             #groups are
-            #0 - opening brace 
+            #0 - opening brace
             #1 - element name with spaces
             #2 - attributes
             #3 - closing brace
             curedTag = parts[0] + "".join(map(str.capitalize, parts[1].split())) + parts[2] + parts[3]
             curedText += text[pos:match.start()] + curedTag
             pos = match.end()
-            
+
         curedText += text[pos:]
-        
+
     return curedText
 
 def queryUniprot(accessionList):
@@ -58,14 +65,14 @@ def queryUniprot(accessionList):
         }
 
     return requests.post('http://www.uniprot.org/uploadlists/', params).text
-    
+
 
 data = []
 
 for name in walk(xmlPath, False).next()[2]:
     if stat(xmlPath + name).st_size > 0: #ignore empty files
         d = etree.fromstring(curePPDSyntax(xmlPath + name))
-        
+
         #collect protein information
         protein = {}
         protein["filename"] = name
@@ -75,33 +82,33 @@ for name in walk(xmlPath, False).next()[2]:
         protein["UniprotID"] = d.xpath("//protein/swissprot")[0].text.strip()
         protein["NrReference"] = len(d.xpath("//Experimental_evidence[@Reference]"))
         protein["NrPlasma"] = len(d.xpath("//Experimental_evidence[@Sample=\"Plasma\"]"))
-    
+
         data.append(protein)
 
 data = DataFrame(data)#convert to DataFrame for easier manin=pulation
 
 #keep only entries with more than 1 experimental evidence in total and at least one in plasma
 ids = data.loc[np.logical_and(data["NrPlasma"] > 0, data["NrReference"] > 1), "UniprotID"].values
-print "Number of entries from PPD:", len(ids)
+print("Number of entries from PPD:", len(ids))
 
 #remove entries whitout SwissProt identifier
 ids = ids[np.logical_and(ids != "-", ids != "None")]
-print "Removed empty SwissProt identifiers:", len(ids)
+print("Removed empty SwissProt identifiers:", len(ids))
 
 #Has only a single SwissProt id
 singleIDs = filter(lambda x: len(x) == 6, ids)
-print "Have single ID:", len(singleIDs)
+print("Have single ID:", len(singleIDs))
 
 #some ids are duplicates, thus we will use set
 singleIDfasta = queryUniprot(set(singleIDs))
 
 #collect data from fasta
-proteins = [{"Description": p.description, "Sequence": p.sequence} 
+proteins = [{"Description": p.description, "Sequence": p.sequence}
                 for p in fasta.read(StringIO(singleIDfasta))]
 
 
 multipleIDs = filter(lambda x: len(x) > 6, ids)
-print "Have multiple IDs:", len(multipleIDs)
+print("Have multiple IDs:", len(multipleIDs))
 
 multipleIDfasta = ""
 
@@ -110,18 +117,18 @@ for ID in multipleIDs:
     multipleIDfasta += fastaText
 
 #collect further data
-proteins.extend([{"Description": p.description, "Sequence": p.sequence} 
+proteins.extend([{"Description": p.description, "Sequence": p.sequence}
                 for p in fasta.read(StringIO(multipleIDfasta))])
 
 
 proteins = DataFrame(proteins)
 proteins["ID"] = proteins["Description"].apply(lambda s: s.split("|")[1])#extract UniprotID
 proteins["db"] = proteins["Description"].apply(lambda s: s.split("|")[0])#extract database type (SwissProt or TrEMBL)
-print "Number of proteins in fasta:", len(proteins)
+print("Number of proteins in fasta:", len(proteins))
 proteins.drop_duplicates("ID", inplace = True)
-print "Remove duplicates:", len(proteins)
+print("Remove duplicates:", len(proteins))
 
-print "SwissProt: {}; TrEMBL: {}".format(sum(proteins["db"] == "sp"), sum(proteins["db"] == "tr"))
+print("SwissProt: {}; TrEMBL: {}".format(sum(proteins["db"] == "sp"), sum(proteins["db"] == "tr")))
 
 #writing result
 fasta.write(zip(proteins["Description"], proteins["Sequence"]), open(fastaPath + "PPD.fasta", "w"))
@@ -134,3 +141,24 @@ contProteins = [p for p in fasta.read(open(fastaPath + "MQCont.fasta", "r"))]
 fasta.write(ppdProteins + contProteins, open(fastaPath + "PPD_MQCont.fasta", "w"))
 fasta.write_decoy_db(fastaPath + "PPD_MQCont.fasta", fastaPath + "PPD_MQCont+Rev.fasta", file_mode = "w")
 
+
+#%% Plasma protein concentrations
+
+def readConcentrations(concentrationPath):
+    #cleaning concentration XML
+    concXML = open(concentrationPath).read()
+    concXML = re.sub(r"&plusmn;", "±", concXML)#substitute html to utf-8
+    concXML = re.sub(r"encoding=\".+?\"(?=.+\?>)", "", concXML)#remove encoding
+
+    xmlData = etree.fromstring(concXML)
+
+    concData = DataFrame([dict(row.attrib) for row in xmlData.xpath("//Row")])
+    concData = concData.rename(columns=concData.iloc[0]).drop(0)
+
+    #further cleaning
+    concData["concentration"] = concData["Protein concentration"].str.replace("·", ".")
+    concData["concentration"] = concData["concentration"].str.replace("[^\\d\\.\\+\\-±]", "")
+
+    return concData.drop("Protein concentration", axis = 1)
+
+readConcentrations(concentrationPath).to_csv("{}plasma_protein_concentrations.csv".format(resDir), index=False)

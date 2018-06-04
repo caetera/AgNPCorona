@@ -2,26 +2,27 @@
 """
 Created on Mon Jan 30 17:42:16 2017
 
-Data processing and figure generation
+Data processing and figures
 
 @author: vgor
 """
-from __future__ import print_function
 import re
 import numpy as np
 import pylab as plt
-import requests
-from coronaHelpers import readPercOut
-from coronaPlots import *
-from lxml import etree
+from coronaHelpers import readPercOut, cleanIDs, getProteinData, parseIndex
+from coronaPlots import proteinAbundancePlot, intersectionPlot, directionPlot
 from pandas import DataFrame, Series, read_csv, concat
-from collections import defaultdict
+from collections import Counter
 from pyteomics.pylab_aux import scatter_trend
-from pyteomics.mass import fast_mass
-from pyteomics.electrochem import pI
-from gravy import gravy, AAContent
 from scipy.optimize import curve_fit
-from scipy.stats import ttest_ind as ttest
+from pyteomics import fasta
+from pickle import dump, load
+from statsmodels.stats.multitest import multipletests
+
+#Working directories
+workDir = "E:\\RawData\\20161120_NP\\"
+resDir = workDir + "res\\"
+fastaDir = "E:\\Fasta\\"
 
 #Mapping UNIMOD ID to trivial name
 unimodMap = {"1": "Acetyl",
@@ -29,34 +30,67 @@ unimodMap = {"1": "Acetyl",
              "5": "Carbamyl",
              "35": "Oxidation"}
 
+def parseSamples(name):
+    """
+    Parse sample information  from  OpenMS peptide file
+    (Corresponndence between abundance and sample)
+    """
+    with open("{}{}.peptides.csv".format(workDir, name)) as fin:
+        lineNr = 0
+        while lineNr < 2:
+            fin.readline()
+            lineNr += 1
+        desc = fin.readline()
+        pairs = re.findall(r"(\d+):.+?\\(\w+)_\d+\.", desc)
+        return pairs
 
 def quantifyProteins(name):
     """
     TopN Quantition using peptides from OpenMS
     name - the name of the file to work with
     """
-    def quantifyProtein(peptidelist, aggFunc = np.nanmedian, N = 3):
+    def quantifyProtein(peptidelist, workcolumns, aggFunc = np.nanmedian, N = 3):
         """
         Perform the quantification for individual protein
         aggFunc - function used for aggreagtion (ex. mean)
         N as in TopN
         """
-        data = iqpeptides.ix[peptidelist, :]
+        data = iqpeptides.reindex(index=peptidelist)
     
         result = Series()
     
-        for i in "123":
-            topN = data.sort("abundance_" + i, ascending = False)[:N]
-            if np.all(np.isfinite(topN["abundance_" + i ])):
-                result["abundance" + i] = aggFunc(topN["abundance_" + i ])
+        for c in workcolumns:
+            topN = data.sort_values(c, ascending = False)[:N]
+            if np.all(np.isfinite(topN[c])):
+                result[c] = aggFunc(topN[c])
+    
+        return result
+    
+    def countPeptides(peptidelist, workcolumns):
+        """
+        Count peptides with quantification for individual protein
+        """
+        data = iqpeptides.reindex(index=peptidelist)
+    
+        result = Series()
+    
+        for c in workcolumns:
+            result[c] = np.sum(np.isfinite(data[c]))
     
         return result
 
+
     #load percolator results
-    psms, peptides, proteins = readPercOut("E:\\RawData\\20161120_NP\\{}.pout.xml".format(name))
+    psms, peptides, proteins = readPercOut("{}{}.pout.xml".format(workDir, name))
     
     #load OpenMS peptides results
-    qpeptides = read_csv("E:\\RawData\\20161120_NP\\{}.peptides.csv".format(name), sep = "\t", skiprows = 3)
+    qpeptides = read_csv("{}{}.peptides.csv".format(workDir, name), sep = "\t", skiprows = 3)
+    
+    #load OpenMS column descrptions
+    pairs = {"abundance_" + k: v for k,v in parseSamples(name)}
+    
+    #rename the columns
+    qpeptides.columns = [pairs[c] if c in pairs.keys() else c for c in qpeptides.columns]
     
     #convert sequences to OpenMS notation
     peptides["Sequence"] = peptides["ID"].apply(lambda s: re.sub(r"\[UNIMOD:(\d+)\]",\
@@ -77,49 +111,35 @@ def quantifyProteins(name):
     iproteins = proteins[proteins["q-value"] < 0.01].copy()
     
     #quantify proteins
-    iproteins[["{}_{}".format(name, i) for i in "123"]] = iproteins["Peptides"].apply(quantifyProtein)
+    iproteins = concat([iproteins, iproteins["Peptides"].apply(quantifyProtein, args = (sorted(pairs.values()),))], axis = 1) 
+    
+    #count quantified peptides per protein
+    proteinsCount = iproteins["Peptides"].apply(countPeptides, args = (sorted(pairs.values()),)) 
     
     #find non quantified proteins (all Abundances are NaN)
-    qind = np.any(np.isfinite(iproteins[["{}_{}".format(name, i) for i in "123"]].values), axis = 1)
+    qind = np.any(np.isfinite(iproteins[list(pairs.values())].values), axis = 1)
     iproteins.drop(["Peptides", "q-value"], axis = 1, inplace = True)
     iproteins = iproteins[qind]
     
     #report information about identifications and quantifications
-    #identified peptides, quantified peptides, identified proteins, quantified proteins
-    print(name, sum(peptides["q-value"] < 0.01), len(iqpeptides), sum(proteins["q-value"] < 0.01), len(iproteins))
-    
-    #make interreplicate correlation plots
-    plt.figure(figsize = (7, 9))
-    plt.subplot(3, 1, 1)
-    ind = np.logical_and(iproteins["{}_1".format(name)] > 0, iproteins["{}_2".format(name)]> 0)
-    scatter_trend(np.log10(iproteins.loc[ind, "{}_1".format(name)]), np.log10(iproteins.loc[ind, "{}_2".format(name)]))
-    plt.xlabel("log10({}_1 abundance)".format(name))
-    plt.ylabel("log10({}_2 abundance)".format(name))
-    plt.subplot(3, 1, 2)
-    ind = np.logical_and(iproteins["{}_1".format(name)] > 0, iproteins["{}_3".format(name)]> 0)
-    scatter_trend(np.log10(iproteins.loc[ind, "{}_1".format(name)]), np.log10(iproteins.loc[ind, "{}_3".format(name)]))
-    plt.xlabel("log10({}_1 abundance)".format(name))
-    plt.ylabel("log10({}_3 abundance)".format(name))
-    plt.subplot(3, 1, 3)
-    ind = np.logical_and(iproteins["{}_2".format(name)] > 0, iproteins["{}_3".format(name)]> 0)
-    scatter_trend(np.log10(iproteins.loc[ind, "{}_2".format(name)]), np.log10(iproteins.loc[ind, "{}_3".format(name)]))
-    plt.xlabel("log10({}_2 abundance)".format(name))
-    plt.ylabel("log10({}_3 abundance)".format(name))    
-    
-    plt.savefig("E:\\RawData\\20161120_NP\\{}_reps.png".format(name))
-    plt.close()
+    print("""
+          {}
+          Identified peptides: {}
+          Quantified peptides: {}
+          Identified proteins: {}
+          Quantified proteins: {}
+          Median quantified peptides per protein: {}
+          """.format(name, sum(peptides["q-value"] < 0.01), len(iqpeptides), sum(proteins["q-value"] < 0.01),
+                      len(iproteins), np.median(proteinsCount.values)))
     
     return iproteins
 
-def processExperimentT(name):
+def processExperiment(name):
     """
-    Do the qunatification on temperature experiments
+    Do the qunatification on a single experiments
     """
     #collect data from all replicates and contol
-    d = quantifyProteins("{}1".format(name))
-    d = d.merge(quantifyProteins("{}2".format(name)), on = "ID", how = "outer")
-    d = d.merge(quantifyProteins("{}3".format(name)), on = "ID", how = "outer")
-    d = d.merge(quantifyProteins("{}C".format(name)), on = "ID", how = "outer")
+    d = quantifyProteins("{}".format(name))
     
     #names of columns with numerical data
     datacolumns = d.columns[1:]
@@ -129,134 +149,7 @@ def processExperimentT(name):
     d[datacolumns] = d[datacolumns].apply(np.log10, axis = 1)
     d.replace(-np.inf, 0, inplace = True)
     d.set_index("ID", verify_integrity = True, inplace = True)
-    d.to_csv("E:\\RawData\\20161120_NP\\{}_raw.csv".format(name))      
-    
-def processExperimentP(name):
-    """
-    Do the qunatification on pH experiments
-    """
-    #collect data from all replicates and control
-    d = quantifyProteins("{}_B1".format(name))
-    d = d.merge(quantifyProteins("{}_B2".format(name)), on = "ID", how = "outer")
-    d = d.merge(quantifyProteins("{}_B3".format(name)), on = "ID", how = "outer")
-    d = d.merge(quantifyProteins("{}_C".format(name)), on = "ID", how = "outer")
-    
-    #names of the columns containing numerical data
-    datacolumns = d.columns[1:]
-    
-    #log10 transformation, cleaning, saving the result into plain csv
-    #protein ID (as reported by search engine vs quantification results)
-    d[datacolumns] = d[datacolumns].apply(np.log10, axis = 1)
-    d.replace(-np.inf, 0, inplace = True)
-    d.set_index("ID", verify_integrity = True, inplace = True)
-    d.to_csv("E:\\RawData\\20161120_NP\\{}_raw.csv".format(name))
-    
-def splitID(s):
-    """
-    Extract Uniprot ID(s) from protein name
-    """
-    ids = [x.split("|")[1] for x in s.split(",")]
-    
-    return " ".join(ids)
-
-def queryUniprot(accessionList, resFormat = "xml"):
-    """
-    Retrieve list of accessions from Uniprot in specific format
-    resFormat - the resulting format as in Uniprot API
-    """
-    params = {
-        'from': 'ACC',
-        'to': 'ACC',
-        'format': resFormat,
-        'query':' '.join(accessionList)
-        }
-
-    return requests.post('http://www.uniprot.org/uploadlists/', params)
-
-def cleanIDs(idString):
-    """
-    Convert search engine protein IDs to UniprotIDs
-    Exclude contaminants
-    """
-    #the format of ID is like ??|UNIPROTID|???, ??|UNIPROTID|???, ....
-    elements = [e.split("|") for e in idString.split(",")]
-    elements = filter(lambda z: len(z) == 3, elements)
-    if len(elements) > 1: #more than one protein ID (happens when proteins are indistinguishable)
-        accNrs = map(lambda s: s[1].replace("CONT_", ""), elements)
-        if all([accNrs[0] == a for a in accNrs]): #all IDs are the same
-            if accNrs[0] == "P02768": #map BSA to HSA
-                return accNrs[0]
-            else:
-                #Internal check
-                print(idString, accNrs)
-                return ""
-        else:
-            if accNrs[0] == "P60712": #Asign as actin
-                return accNrs[1]
-            else:
-                #Internal check
-                print(idString, accNrs)
-                return ""
-                    
-    else:
-        if elements[0][1].startswith("CONT_"): #contaminants
-            return ""
-        else:
-            return elements[0][1] #regular protein
-            
-def getDisulfidePositions(entry, ns):
-    """
-    Parse positions of cysteines bound by disulfide bonds from Uniprot XML
-    """
-    positions = map(lambda ee: ee.get("position"), entry.findall("./n:feature[@type=\"disulfide bond\"]/n:location/*", namespaces = ns))
-    
-    positions = filter(lambda ee: not (ee is None), positions)
-    
-    return set([int(p) for p in positions])
-    
-def getProteinData(ids):
-    """
-    Retrieve protein data from Uniprot and parse it in to ready to use format
-    """
-    #create namespace dictionary for further use
-    ns = {"n": "http://uniprot.org/uniprot"}
-    #retrieve the data
-    print("Retriving {} entries from Uniprot".format(len(ids)))
-    xmlData = etree.fromstring(queryUniprot(ids).content)
-    print("Uniprot done. Parsing")
-    #read XML and extract basic data
-    data = []
-    for entry in xmlData.findall("n:entry", namespaces = ns):
-        accNr = entry.find("./n:accession", namespaces = ns).text
-        geneID = entry.find("./n:gene/n:name[@type=\"primary\"]", namespaces = ns).text
-        fullname = entry.find(".//n:fullName", namespaces = ns).text
-        sequence = entry.find("./n:sequence", namespaces = ns).text
-        sequence = sequence.replace("\n", "").strip()
-        nDisulfide = len(entry.findall("./n:feature[@type=\"disulfide bond\"]", namespaces = ns))
-        bC = getDisulfidePositions(entry, ns)
-        goTerms = entry.xpath("./n:dbReference[@type=\"GO\"]/n:property[@type=\"term\"]/@value", namespaces = ns)
-        goData = defaultdict(list)
-        for term in goTerms:
-            goData[term[0]].append(term[2:])
-        
-        data.append((accNr, geneID, fullname, goData["C"], goData["F"], goData["P"], sequence, nDisulfide, bC))
-    
-    data = DataFrame(data, columns = ["UniprotID", "GeneID", "Name", "GOComponent", "GOFunction", "GOProcess", "Sequence", "Disulfides", "BoundC"])
-    
-    #calculate some additional properties
-    data["MW"] = data["Sequence"].apply(fast_mass)
-    data["pI"] = data["Sequence"].apply(pI)
-    data["GRAVY"] = data["Sequence"].apply(gravy)
-    data["AAC"] = data["Sequence"].apply(AAContent, frequencies = False)
-    
-    #check if all IDs are assigned
-    idCheck = set(data["UniprotID"]) == set(ids)
-    print("ID check: {}".format(idCheck))
-    if not idCheck:
-        print("IDs missing in Uniprot: {}".format(set(data["UniprotID"]).difference(set(ids))))
-        print("IDs missing in query: {}".format(set(ids).difference(set(data["UniprotID"]))))
-    
-    return data
+    d.to_csv("{}{}_raw.csv".format(workDir, name))      
 
 def getTopN(resT, labels, N):
     """
@@ -268,7 +161,7 @@ def getTopN(resT, labels, N):
     #collect indices of rows in the dataframe
     dd = set()
     for label in labels:
-        dd = dd.union(set(resT.sort(label, ascending = False).index[:N]))
+        dd = dd.union(set(resT.sort_values(label, ascending = False).index[:N]))
     
     return resT.loc[list(dd), :].fillna(0)
 
@@ -279,7 +172,7 @@ def sigmoid(x, x0, k):
     y = 1 / (1 + np.exp(-k*(x-x0)))
     return y
      
-def get_sigmoid_fit(row):
+def get_sigmoid_fit(row, x):
     """
     Perform fittinig with the sigmoid function on one row (protein amount in 5 conditions)
     x - is defined externally and should be scaled to [0, 1]
@@ -289,7 +182,7 @@ def get_sigmoid_fit(row):
     y = row[:5].values.astype(float)
     y = (y - min(y)) / (max(y) - min(y)) #scale y to [0, 1]
     try:
-        opt, cov = curve_fit(sigmoid, x, y, [0.5, 0.5])
+        opt, cov = curve_fit(sigmoid, x, y, [0.5, 0.5 if y[0] < y[-1] else -0.5])
         #if the fit is good  -> return the fit
         if 1 - np.power((sigmoid(x, *opt) - y), 2).sum() / np.power((y - y.mean()), 2).sum() > 0.5:
             return opt[0] * np.sign(opt[1])
@@ -313,7 +206,7 @@ def plot_sigmoid_fit(x, y, ystd, xlab = "", ylab = ""):
     plt.errorbar(x_scaled, y_scaled, yerr = ystd / (y.max() - y.min()), fmt = "bo")
     #perform fitting
     try:
-        opt, cov = curve_fit(sigmoid, x_scaled, y_scaled, [0.5, 0.5])
+        opt, cov = curve_fit(sigmoid, x_scaled, y_scaled, [0.5, 0.5 if y[0] < y[-1] else -0.5])
         #Total and unexplained variance
         varTot = np.power((y_scaled - y_scaled.mean()), 2).sum()
         varErr = np.power((sigmoid(x_scaled, *opt) - y_scaled), 2).sum()
@@ -334,113 +227,24 @@ def plot_sigmoid_fit(x, y, ystd, xlab = "", ylab = ""):
 
 #%%Analysis
 #Perform quantification
-for name in ["Temp" + x for x in "ABCDE"]:
-    processExperimentT(name)
+processExperiment("Temperature")
     
-for name in ["pH" + x for x in ["3", "5", "6_6", "7", "9"]]:
-    processExperimentP(name)
-
-#%%Compute average values for control samples
-#pH experiment
-#read quantification results and merge them together
-data = []
-for name in ["pH" + x for x in ["3", "5", "6_6", "7", "9"]]:
-    d = read_csv("E:\\RawData\\20161120_NP\\{}_raw.csv".format(name))
-    #keep only columns that correspond to control
-    d = d.iloc[np.all(d.iloc[:, -4:-1] != 0, axis = 1), [0, -3, -2, -1]]
-    d.set_index("ID", drop = True, inplace = True)
-    data.append(d)
-
-md = concat(data, join = "outer", axis = 1)
-
-#remove empty lines
-md = md[md.apply(lambda x: np.any(np.isfinite(x)), axis = 1)]
-
-#Summarize the data at the biologiacal repicate level (i.e. join technical repeats)
-res = DataFrame(index = md.index)
-for c in ["3", "5", "6_6", "7", "9"]:
-    res["pH{}".format(c)] = \
-        md.loc[:, ["pH{}_C_{}".format(c, i) for i in "123"]]\
-        .apply(lambda x: np.nansum(x)/sum(np.logical_and(np.isfinite(x), x != 0)), axis = 1)
-
-#Correct the accesion number of Calmodulin (was changed in Uniprot after the search)
-res.index = map(lambda s: 'sp|P0DP23|CALM_HUMAN' if s == 'sp|P62158|CALM_HUMAN'  else s, res.index)
-
-#retrieve the properties and map them to proteins
-res["CleanID"] = map(cleanIDs, res.index)
-mdc = res[res["CleanID"] != ""].merge(getProteinData(res.loc[res["CleanID"] != "", "CleanID"]),\
-                                         left_on = "CleanID", right_on = "UniprotID", how = "inner")
-                                         
-mdc.drop(["CleanID", "Sequence"], axis = 1, inplace = True)
-
-#calculate average values for control samples
-#the plot routine returns average values
-colnames = ["pH{}".format(c) for c in ["3", "5", "6_6", "7", "9"]]
-pImeansP = pIPlot(mdc, colnames, colors = colors)
-MWmeansP = MWPlot(mdc, colnames, colors = colors)
-GravyMeansP = GravyPlot(mdc, colnames, colors = colors)
-
-#Temperature experiments
-#read quantification and merge them together
-data = []
-for name in ["Temp" + x for x in "ABCDE"]:
-    d = read_csv("E:\\RawData\\20161120_NP\\{}_raw.csv".format(name))
-    #keep the columns corresponding to control
-    d = d.iloc[np.all(d.iloc[:, -4:-1] != 0, axis = 1), [0, -3, -2, -1]]
-    d.set_index("ID", drop = True, inplace = True)
-    data.append(d)
-
-md = concat(data, join = "outer", axis = 1)
-
-#remove empty lines
-md = md[md.apply(lambda x: np.any(np.isfinite(x)), axis = 1)]
-
-#Summarize the data at the biologiacal repicate level (i.e. join technical repeats)
-res = DataFrame(index = md.index)
-for n in ["Temp{}".format(c) for c in "ABCDE"]:
-        res[n] = \
-            md.loc[:, ["{}C_{}".format(n, i) for i in "123"]]\
-            .apply(lambda x: np.nansum(x)/sum(np.logical_and(np.isfinite(x), x != 0)), axis = 1)
-
-#Correct the accesion number of Calmodulin (was changed in Uniprot after the search)
-res.index = map(lambda s: 'sp|P0DP23|CALM_HUMAN' if s == 'sp|P62158|CALM_HUMAN'  else s, res.index)
-
-#retrieve the properties and map them to proteins
-res["CleanID"] = map(cleanIDs, res.index)
-mdc = res[res["CleanID"] != ""].merge(getProteinData(res.loc[res["CleanID"] != "", "CleanID"]),\
-                                         left_on = "CleanID", right_on = "UniprotID", how = "inner")
-                                         
-mdc.drop(["CleanID", "Sequence"], axis = 1, inplace = True)
-
-#calculate average values for control samples
-#the plot routine returns average values
-colnames = ["Temp{}".format(c) for c in "ABCDE"]
-pImeansT = pIPlot(mdc, colnames, colors = colors)
-MWmeansT = MWPlot(mdc, colnames, colors = colors)
-GravyMeansT = GravyPlot(mdc, colnames, colors = colors)
+processExperiment("pH")
 
 #%%Perform the analysis with control subtraction
 #pH experiments
 #collect the quan data and merging
-data = []
-for name in ["pH" + x for x in ["3", "5", "6_6", "7", "9"]]:
-    d = read_csv("E:\\RawData\\20161120_NP\\{}_raw.csv".format(name))
-    #keep the columns present in sample or control
-    d = d.iloc[np.any(d.iloc[:, 1:10] != 0, axis = 1), :]
-    d.set_index("ID", drop = True, inplace = True)
-    data.append(d)
-
-md = concat(data, join = "outer", axis = 1)
+md = read_csv("{}pH_raw.csv".format(workDir))
+md.set_index("ID", drop = True, inplace = True)
 
 #remove empty lines
 md = md[md.apply(lambda x: np.any(np.isfinite(x)), axis = 1)]
 
 #join technical replicates
 res = DataFrame(index = md.index)
-for c in ["3", "5", "6_6", "7", "9"]:
-    for r in ["B1", "B2", "B3", "C"]:
-        res["pH{}_{}".format(c, r)] = \
-            md.loc[:, ["pH{}_{}_{}".format(c, r, i) for i in "123"]]\
+for n in ["pH{}_{}".format(c,r) for c in ["3", "5", "6_6", "7", "9"] for r in ["B1", "B2", "B3", "C"]]:
+        res[n] = \
+            md.loc[:, ["{}T{}".format(n, i) for i in "123"]]\
             .apply(lambda x: np.nansum(x)/sum(np.logical_and(np.isfinite(x), x != 0)), axis = 1)
 
 #subtract protein levels in control samples
@@ -455,70 +259,45 @@ for c in ["3", "5", "6_6", "7", "9"]:
 res[res <= 0] = np.nan
 res = res[res.apply(lambda x: np.any(np.isfinite(x)), axis = 1)]
 
-#extract the data for heatmap (built by external tool)
-zz = res.copy()
-zz.columns = ["{} - {}".format(a,b) for a in ["pH4.9", "pH6.1", "pH6.8", "pH7.7", "pH8.9"] for b in "123"]
-zz.to_csv("E:\\RawData\\20161120_NP\\res\\data.csv")
-
-#make PCA plot 
-plt.figure(figsize = (9,6))
-PCAplot(res, ["4.9", "6.1", "6.8", "7.7", "8.9"])
-plt.savefig("E:\\RawData\\20161120_NP\\res\\PCA_pH.svg", bbox_inches = "tight")
-
 #Correct the accesion number of Calmodulin (was changed in Uniprot after the search)
 res.index = map(lambda s: 'sp|P0DP23|CALM_HUMAN' if s == 'sp|P62158|CALM_HUMAN'  else s, res.index)
 
 #retrieve the properties and map them to proteins
-res["CleanID"] = map(cleanIDs, res.index)
+res["CleanID"] = [cleanIDs(x) for x in res.index]
 mdc = res[res["CleanID"] != ""].merge(getProteinData(res.loc[res["CleanID"] != "", "CleanID"]),\
                                          left_on = "CleanID", right_on = "UniprotID", how = "inner")
                                          
 mdc.drop(["CleanID", "Sequence"], axis = 1, inplace = True)
 
-#create distribution plots
-colnames = ["pH{}_B{}".format(c, r) for c in ["3", "5", "6_6", "7", "9"] for r in "123"]
-colors = ["#cf7b43", "#7d6acb", "#75b140", "#c459b6", "#54a676", "#cc4b42", "#6797d0", "#a5903e", "#c45d83"]
-
-plt.figure(figsize = (9,6))
-pIPlot(mdc, colnames, colors = colors, means = pImeansP)
-plt.savefig("E:\\RawData\\20161120_NP\\res\\pI_pH.svg", bbox_inches = "tight")
-plt.figure(figsize = (9,6))
-MWPlot(mdc, colnames, colors = colors, means = MWmeansP)
-plt.savefig("E:\\RawData\\20161120_NP\\res\\MW_pH.svg", bbox_inches = "tight")
-plt.figure(figsize = (9,6))
-GravyPlot(mdc, colnames, colors = colors, means = GravyMeansP)
-plt.savefig("E:\\RawData\\20161120_NP\\res\\GRAVY_pH.svg", bbox_inches = "tight")
-
 #Summarize the data at the condition level (i.e. join biological replicates)
+#Join biological replicates
 res2 = DataFrame(index = res.index)
 for c in ["3", "5", "6_6", "7", "9"]:
     res2["pH{}".format(c)] = \
-            res.loc[:, ["pH{}_B{}".format(c, r) for r in "123"]]\
+            res.loc[:, ["pH{}_{}".format(c, r) for r in ["B1", "B2", "B3"]]]\
             .apply(lambda x: np.nansum(x)/sum(np.logical_and(np.isfinite(x), x != 0)), axis = 1)
 
 #Correct the accesion number of Calmodulin (was changed in Uniprot after the search)
 res2.index = map(lambda s: 'sp|P0DP23|CALM_HUMAN' if s == 'sp|P62158|CALM_HUMAN'  else s, res2.index)
+res2["CleanID"] = [cleanIDs(x) for x in res2.index]
+
+#Quantification overlap
+overlap = Counter(np.sum(np.isfinite(res2[res2["CleanID"] != ""].drop("CleanID", axis = 1)), axis = 1))
+overlappH = np.array([[overlap[k], float(overlap[k])/(res2["CleanID"] != "").sum() * 100] for k in sorted(overlap.keys(), reverse = True)])
 
 #retrieve the properties and map them to proteins
-res2["CleanID"] = map(cleanIDs, res2.index)
 mdc2 = res2[res2["CleanID"] != ""].merge(getProteinData(res2.loc[res2["CleanID"] != "", "CleanID"]),\
                                          left_on = "CleanID", right_on = "UniprotID", how = "inner")
                                          
 mdc2.drop(["CleanID", "Sequence"], axis = 1, inplace = True)
 #save the results for later use
-mdc2.to_csv("E:\\RawData\\20161120_NP\\res\\pH_conditionDetail.csv", index = False)
+mdc2.to_csv("{}pH_conditionDetail.csv".format(resDir), index = False)
+
 
 #Temperature experiments
-#collect the quan data and merging
-data = []
-for name in ["Temp" + x for x in "ABCDE"]:
-    d = read_csv("E:\\RawData\\20161120_NP\\{}_raw.csv".format(name))
-    #keep the columns present in sample or control
-    d = d.iloc[np.any(d.iloc[:, 1:10] != 0, axis = 1), :]
-    d.set_index("ID", drop = True, inplace = True)
-    data.append(d)
-
-md = concat(data, join = "outer", axis = 1)
+#collect the quan data
+md = read_csv("{}Temperature_raw.csv".format(workDir))
+md.set_index("ID", drop = True, inplace = True)
 
 #remove empty lines
 md = md[md.apply(lambda x: np.any(np.isfinite(x)), axis = 1)]
@@ -538,42 +317,19 @@ for c in "ABCDE":
     
     res.drop("Temp{}C".format(c), axis = 1, inplace = True)
 
+#remove negative values (after subtraction)
 res[res <= 0] = np.nan
 res = res[res.apply(lambda x: np.any(np.isfinite(x)), axis = 1)]
-
-#save the data for heatmap construction (external tool)
-zz = res.copy()
-zz.columns = ["{} - {}".format(a,b) for a in ["4C", "17C", "30C", "41C", "47C"] for b in "123"]
-zz.to_csv("E:\\RawData\\20161120_NP\\res\\data.csv")
-
-#PCA plot
-plt.figure(figsize = (9,6))
-PCAplot(res, ["4", "17", "30", "41", "47"])
-plt.savefig("E:\\RawData\\20161120_NP\\res\\PCA_Temp.svg", bbox_inches = "tight")
 
 #Correct the accesion number of Calmodulin (was changed in Uniprot after the search)
 res.index = map(lambda s: 'sp|P0DP23|CALM_HUMAN' if s == 'sp|P62158|CALM_HUMAN'  else s, res.index)
 
 #retrieve the properties and map them to proteins
-res["CleanID"] = map(cleanIDs, res.index)
+res["CleanID"] = [cleanIDs(x) for x in res.index]
 mdc = res[res["CleanID"] != ""].merge(getProteinData(res.loc[res["CleanID"] != "", "CleanID"]),\
                                          left_on = "CleanID", right_on = "UniprotID", how = "inner")
                                          
 mdc.drop(["CleanID", "Sequence"], axis = 1, inplace = True)
-
-#build distribution plots
-colnames = ["Temp{}{}".format(c, r) for c in "ABCDE" for r in "123"]
-colors = ["#cf7b43", "#7d6acb", "#75b140", "#c459b6", "#54a676", "#cc4b42", "#6797d0", "#a5903e", "#c45d83"]
-
-plt.figure(figsize = (9,6))
-pIPlot(mdc, colnames, colors = colors, means = pImeansT)
-plt.savefig("E:\\RawData\\20161120_NP\\res\\pI_Temp.svg", bbox_inches = "tight")
-plt.figure(figsize = (9,6))
-MWPlot(mdc, colnames, colors = colors, means = MWmeansT)
-plt.savefig("E:\\RawData\\20161120_NP\\res\\MW_Temp.svg", bbox_inches = "tight")
-plt.figure(figsize = (9,6))
-GravyPlot(mdc, colnames, colors = colors, means = GravyMeansT)
-plt.savefig("E:\\RawData\\20161120_NP\\res\\GRAVY_Temp.svg", bbox_inches = "tight")
 
 #Join biological replicates
 res2 = DataFrame(index = res.index)
@@ -584,102 +340,126 @@ for c in "ABCDE":
 
 #Correct the accesion number of Calmodulin (was changed in Uniprot after the search)
 res2.index = map(lambda s: 'sp|P0DP23|CALM_HUMAN' if s == 'sp|P62158|CALM_HUMAN'  else s, res2.index)
+res2["CleanID"] = [cleanIDs(x) for x in res2.index]
+
+#Quantification overlap
+overlap = Counter(np.sum(np.isfinite(res2[res2["CleanID"] != ""].drop("CleanID", axis = 1)), axis = 1))
+overlapTemp = np.array([[overlap[k], float(overlap[k])/(res2["CleanID"] != "").sum() * 100] for k in sorted(overlap.keys(), reverse = True)])
 
 #retrieve the properties and map them to proteins
-res2["CleanID"] = map(cleanIDs, res2.index)
 mdc2 = res2[res2["CleanID"] != ""].merge(getProteinData(res2.loc[res2["CleanID"] != "", "CleanID"]),\
                                          left_on = "CleanID", right_on = "UniprotID", how = "inner")
                                          
 mdc2.drop(["CleanID", "Sequence"], axis = 1, inplace = True)
 #save data for later
-mdc2.to_csv("E:\\RawData\\20161120_NP\\res\\Temp_conditionDetail.csv", index = False)
+mdc2.to_csv("{}\\Temp_conditionDetail.csv".format(resDir), index = False)
 
+#Intersection of quantified proteins
+colors = ["#cf7b43", "#7d6acb", "#75b140", "#c459b6", "#54a676", "#cc4b42", "#6797d0", "#a5903e", "#c45d83"]
+
+plt.figure(figsize = (9,6))
+intersectionPlot(overlappH, overlapTemp, colors)    
+plt.savefig("{}QProtIntersection.svg".format(resDir), bbox_inches = "tight")
 
 #%%Identify differentially abundant proteins
 #Performing fit with sigmoid curve
-#Real temperature values
-x = np.array([4., 17., 30., 41., 47.])
+def calcSigmoids(mdc2, xr, label):
+    #scale x before perfoming fit
+    x = (xr - xr.min())/ (xr.max() - xr.min())
+
+    #fit itself
+    mdc2["SigmaFit"] = mdc2[mdc2.iloc[:, :5].apply(lambda z: np.all(np.isfinite(z)), axis = 1)].apply(get_sigmoid_fit, args = (x,),  axis = 1)
+    mdc2.loc[np.isfinite(mdc2["SigmaFit"]), "Direction"] = mdc2.loc[np.isfinite(mdc2["SigmaFit"]), "SigmaFit"].apply(lambda t: "Up" if t > 0 else "Down")
+
+    mdc2.loc[np.isfinite(mdc2["SigmaFit"]), "Crit"+label] = mdc2.loc[np.isfinite(mdc2["SigmaFit"]), "SigmaFit"].apply(lambda t: xr[0] + abs(t) * (xr[-1] - xr[0]))
+
+#pH experiment
 #Real pH values
 x = np.array([4.9, 6.1, 6.8, 7.7, 8.9])
-#scale x before perfoming fit
-x = (x - x.min())/ (x.max() - x.min())
 
-#fit itself
-mdc2["SigmaFit"] = mdc2[mdc2.iloc[:, :5].apply(lambda x: np.all(np.isfinite(x)), axis = 1)].apply(get_sigmoid_fit, axis = 1)
-mdc2.loc[np.isfinite(mdc2["SigmaFit"]), "Direction"] = mdc2.loc[np.isfinite(mdc2["SigmaFit"]), "SigmaFit"].apply(lambda t: "Up" if t > 0 else "Down")
-#pH
-mdc2.loc[np.isfinite(mdc2["SigmaFit"]), "CritpH"] = mdc2.loc[np.isfinite(mdc2["SigmaFit"]), "SigmaFit"].apply(lambda t: 4.9 + abs(t) * 4)
-mdc2[np.all(np.isfinite(mdc2.loc[:, "pH3":"pH9"]), axis = 1)].to_csv("E:\\RawData\\20161120_NP\\res\\omnipHS.csv", index = False)
-mdc2[np.isfinite(mdc2["SigmaFit"])].to_csv("E:\\RawData\\20161120_NP\\res\\sigmoidpHS.csv", index = False)
-#temperature
-mdc2.loc[np.isfinite(mdc2["SigmaFit"]), "CritTemp"] = mdc2.loc[np.isfinite(mdc2["SigmaFit"]), "SigmaFit"].apply(lambda t: 4.0 + abs(t) * 43)
-mdc2[np.all(np.isfinite(mdc2.loc[:, "TempA":"TempE"]), axis = 1)].to_csv("E:\\RawData\\20161120_NP\\res\\omniTempS.csv", index = False)
-mdc2[np.isfinite(mdc2["SigmaFit"])].to_csv("E:\\RawData\\20161120_NP\\res\\sigmoidTempS.csv", index = False)
+#calculating fits
+calcSigmoids(mdc2, x, "pH")
+mdc2[np.all(np.isfinite(mdc2.loc[:, "pH3":"pH9"]), axis = 1)].to_csv("{}omnipHS.csv".format(resDir), index = False)
+mdc2[np.isfinite(mdc2["SigmaFit"])].to_csv("{}sigmoidpHS.csv".format(resDir), index = False)
 
 #plotting sigmoid fits
-#pH
-x = np.array([4.9, 6.1, 6.8, 7.7, 8.9])
-cInd = dict(zip(mdc2.columns[:5], [map(lambda t: t.startswith(s), mdc.columns) for s in mdc2.columns[:5]]))
+cInd = dict(zip(mdc2.columns[:5], [[t.startswith(s) for t in mdc.columns] for s in mdc2.columns[:5]]))
 for i, row in mdc2.loc[np.isfinite(mdc2["SigmaFit"]), :].iterrows():
     err = [np.nanstd(mdc.loc[mdc["UniprotID"] == row["UniprotID"], cInd[t]]) for t in mdc2.columns[:5]]
     plt.figure()
     plt.title("{} ({})\n".format(row["Name"], row["GeneID"]))
     plot_sigmoid_fit(x, row[:5].values.astype(float), err, "pH", "log10(Abundance)")
-    plt.savefig("E:\\RawData\\20161120_NP\\res\\SigmaFitspHS\\{}.svg".format(row["GeneID"]))
+    plt.savefig("{}SigmaFitspHS\\{}.svg".format(resDir, row["GeneID"]))
     plt.close()
 
-#Flat fits
+#Plotting flat fits
 #select proteins quantified in all conditions
 mdc3 = mdc2[np.all(np.isfinite(mdc2.loc[:, "pH3":"pH9"]), axis = 1)]
 
-x = np.array([4.9, 6.1, 6.8, 7.7, 8.9])
-cInd = dict(zip(mdc3.columns[:5], [map(lambda t: t.startswith(s), mdc.columns) for s in mdc3.columns[:5]]))
+cInd = dict(zip(mdc3.columns[:5], [[t.startswith(s) for t in mdc.columns] for s in mdc3.columns[:5]]))
 for i, row in mdc3.loc[~np.isfinite(mdc3["SigmaFit"]), :].iterrows():
     err = [np.nanstd(mdc.loc[mdc["UniprotID"] == row["UniprotID"], cInd[t]]) for t in mdc3.columns[:5]]
     plt.figure()
     plt.title("{} ({})\n".format(row["Name"], row["GeneID"]))
     plot_sigmoid_fit(x, row[:5].values.astype(float), err, "pH", "log10(Abundance)")
-    plt.savefig("E:\\RawData\\20161120_NP\\res\\SigmaFitspHS-\\{}.svg".format(row["GeneID"]))
+    plt.savefig("{}SigmaFitspHS-\\{}.svg".format(resDir, row["GeneID"]))
     plt.close()
 
 
-#Temeperature
+#Temeperature experiment
+#Real temperature values
 x = np.array([4., 17., 30., 41., 47.])
-cInd = dict(zip(mdc2.columns[:5], [map(lambda t: t.startswith(s), mdc.columns) for s in mdc2.columns[:5]]))
+
+#calculating fits
+calcSigmoids(mdc2, x, "Temp")
+mdc2[np.all(np.isfinite(mdc2.loc[:, "TempA":"TempE"]), axis = 1)].to_csv("{}omniTempS.csv".format(resDir), index = False)
+mdc2[np.isfinite(mdc2["SigmaFit"])].to_csv("{}sigmoidTempS.csv".format(resDir), index = False)
+
+#plottining sigmoid fits
+cInd = dict(zip(mdc2.columns[:5], [[t.startswith(s) for t in mdc.columns] for s in mdc2.columns[:5]]))
 for i, row in mdc2.loc[np.isfinite(mdc2["SigmaFit"]), :].iterrows():
     err = [np.nanstd(mdc.loc[mdc["UniprotID"] == row["UniprotID"], cInd[t]]) for t in mdc2.columns[:5]]
     plt.figure()
     plt.title("{} ({})\n".format(row["Name"], row["GeneID"]))
     plot_sigmoid_fit(x, row[:5].values.astype(float), err, "Temperature", "log10(Abundance)")
-    plt.savefig("E:\\RawData\\20161120_NP\\res\\SigmaFitsTempS\\{}.svg".format(row["GeneID"]))
+    plt.savefig("{}SigmaFitsTempS\\{}.svg".format(resDir, row["GeneID"]))
     plt.close()
 
-#Flat fits
+#plotting flat fits
 #select proteins quantified in all conditions
 mdc3 = mdc2[np.all(np.isfinite(mdc2.loc[:, "TempA":"TempE"]), axis = 1)]
 
-x = np.array([4., 17., 30., 41., 47.])
-cInd = dict(zip(mdc3.columns[:5], [map(lambda t: t.startswith(s), mdc.columns) for s in mdc3.columns[:5]]))
+cInd = dict(zip(mdc3.columns[:5], [[t.startswith(s) for t in mdc.columns] for s in mdc3.columns[:5]]))
 for i, row in mdc3.loc[~np.isfinite(mdc3["SigmaFit"]), :].iterrows():
     err = [np.nanstd(mdc.loc[mdc["UniprotID"] == row["UniprotID"], cInd[t]]) for t in mdc3.columns[:5]]
     plt.figure()
     plt.title("{} ({})\n".format(row["Name"], row["GeneID"]))
     plot_sigmoid_fit(x, row[:5].values.astype(float), err, "Temperature", "log10(Abundance)")
-    plt.savefig("E:\\RawData\\20161120_NP\\res\\SigmaFitsTempS-\\{}.svg".format(row["GeneID"]))
+    plt.savefig("{}SigmaFitsTempS-\\{}.svg".format(resDir, row["GeneID"]))
     plt.close()
 
-#%%Top20
-mdc2 = read_csv("E:\\RawData\\20161120_NP\\res\\pH_conditionDetail.csv")
-getTopN(mdc2, ["pH3", "pH5", "pH6_6", "pH7", "pH9"], 20).to_clipboard(index  = False)
+#direction in persistent fraction
+omniT = read_csv("{}omniTempS.csv".format(resDir))
+omniP = read_csv("{}omnipHS.csv".format(resDir))
 
-mdc2 = read_csv("E:\\RawData\\20161120_NP\\res\\Temp_conditionDetail.csv")
-getTopN(mdc2, ["TempA", "TempB", "TempC", "TempD", "TempE"], 20).to_clipboard(index  = False)
+plt.figure(figsize = (9,6))
+directionPlot(omniT, omniP)    
+plt.savefig("{}DirectionPersistent.svg".format(resDir), bbox_inches = "tight")
+
+
+#%%Top20
+mdc2 = read_csv("{}pH_conditionDetail.csv".format(resDir))
+getTopN(mdc2, ["pH3", "pH5", "pH6_6", "pH7", "pH9"], 20).to_csv("{}Top20pH.csv".format(resDir), index  = False)
+
+mdc2 = read_csv("{}Temp_conditionDetail.csv".format(resDir))
+getTopN(mdc2, ["TempA", "TempB", "TempC", "TempD", "TempE"], 20).to_csv("{}Top20Temp.csv".format(resDir), index  = False)
+
 
 #%%TPP and pI correlation
 #Load ThermoProteomeProfiling data
-TS4 = read_csv("E:\\RawData\\20161120_NP\\res\\TableS4.csv")[["Protein NAME", "meltP_Vehicle_Expt2"]]
+TS4 = read_csv("{}TableS4.csv".format(resDir))[["Protein NAME", "meltP_Vehicle_Expt2"]]
 #load critcal temperature
-sigmT = read_csv("E:\\RawData\\20161120_NP\\res\\sigmoidTempS.csv")
+sigmT = read_csv("{}sigmoidTempS.csv".format(resDir))
 
 #idenitidy overlapping proteins
 overlap = TS4[np.isfinite(TS4["meltP_Vehicle_Expt2"])].merge(sigmT[np.isfinite(sigmT["SigmaFit"])], left_on = "Protein NAME", right_on = "GeneID")
@@ -689,131 +469,190 @@ plt.figure(figsize = (8,5))
 scatter_trend(overlap["CritTemp"], overlap["meltP_Vehicle_Expt2"],)
 plt.xlabel("Critical Temperature")
 plt.ylabel("Melting Temperature")
-plt.savefig("E:\\RawData\\20161120_NP\\res\\meltPTemp.svg")
-
+plt.savefig("{}meltPTemp.svg".format(resDir))
 
 #pI to critical pH correlation
-mdc2 = read_csv("E:\\RawData\\20161120_NP\\res\\sigmoidpHS.csv")
+mdc2 = read_csv("{}sigmoidpHS.csv".format(resDir))
 plt.figure(figsize = (8,5))
 selector = np.isfinite(mdc2["SigmaFit"])
 scatter_trend(mdc2.loc[selector, "CritpH"], mdc2.loc[selector, "pI"])
 plt.xlabel("Critical pH")
 plt.ylabel("pI")
-plt.savefig("E:\\RawData\\20161120_NP\\res\\pIpH.svg")
+plt.savefig("{}pIpH.svg".format(resDir))
 
-#%%Other 
-#Identification overlaps
-def overlapBarplot(labels, protFormat):
-    points = []
-    errors = []
-    names = []
-    for a in range(len(labels) - 1):
-        labelA = labels[a]
-        labelB = labels[a+1]
-        differenceA = [len(proteins[protFormat.format(labelA, i)].difference(proteins[protFormat.format(labelA, j)]))/\
-                        float(len(proteins[protFormat.format(labelA, i)]))\
-                        for (i,j) in [(1,2), (2,3), (1,3)]]        
-        differenceB = [len(proteins[protFormat.format(labelA, i)].difference(proteins[protFormat.format(labelB, j)]))/\
-                        float(len(proteins[protFormat.format(labelA, i)]))\
-                        for i in (1,2,3) for j in (1,2,3)]
-        
-        names.extend(["{0} vs {0}".format(labelA), "{} vs {}".format(labelA, labelB)])
-        points.extend([np.mean(differenceA), np.mean(differenceB)])
-        errors.extend([np.std(differenceA), np.std(differenceB)])
-        
-        print(ttest(differenceA, differenceB, equal_var = False))
+#%%Plasma Proteome plot
+ppConcentration = read_csv("{}plasma_protein_concentrations.csv".format(resDir))
+
+massAbr = { "g": 1,
+           "mg": 1e-3,
+           "ug": 1e-6,
+           "µg": 1e-6,
+           "ng": 1e-9,
+           "pg": 1e-12,
+           "fg": 1e-15}
+
+volAbr = { "l": 1,
+          "dl": 1e-1,
+          "ml": 1e-3}
+
+
+def parseConcentration(s):
+    """
+    Convert different formats of concentration to common one
+    """
+    if s.find("±") != -1:
+        med, dev = [float(x) for x in s.split("±")]
+        return np.array([med - dev, med + dev])
+    elif s.find("-") != -1:
+        low, high =[ float(x) for x in s.split("-")]
+        return np.array([low, high])
+    elif s.find("+") != -1:
+        med, dev = [float(x) for x in s.split("+")]
+        return np.array([med - dev, med + dev])
+    else:
+        return np.array([float(s)])
     
-    plt.figure(figsize = (9, 7))
-    plt.bar(range(len(names)), points, align = "center", alpha = 0.7)
-    plt.errorbar(range(len(names)), points, yerr = errors, ecolor = "k", elinewidth = 2, fmt = None)
-    plt.xticks(range(len(names)), names, rotation = "vertical")
-    plt.ylabel("Difference fraction")
-    plt.tick_params(axis='both', which='both', left='off', right='off' , bottom='off', top='off', labelleft='on')
+#parse units into coefficients
+units = ppConcentration["Unit"].str.split("/", expand = True).apply\
+           (lambda u: massAbr.get(u[0], np.nan) / volAbr.get(u[1].lower(), np.nan), axis = 1)
 
-labels = "ABCDE"
-proteins = {}
-for e in labels:
-    for r in "123":
-        name = "Temp{}{}".format(e,r)
-        proteins[name] = set(res[np.isfinite(res[name])].index)
-        
-overlapBarplot(labels, "Temp{}{}")
-plt.savefig("E:\\RawData\\20161120_NP\\res\\IDoverlapTemp.svg")
+#remove lines with unparsable unit (it is only one, BTW)
+ppConcentration = ppConcentration[np.isfinite(units)]
+
+#make all concentation comparable
+ppConcentration["conc"] = ppConcentration["concentration"].apply(parseConcentration) * units
+
+#summarize different concentration
+#pandas 0.20+ syntax 
+def cmin(x):
+    return np.concatenate(x.values).min()
+
+def cmax(x):
+    return np.concatenate(x.values).max()
+
+def cavg(x):
+    return np.concatenate(x.values).mean()
+
+#group by Gene
+abundanceData = ppConcentration.groupby("Gene Symbol").agg({"conc": [cmin, cmax, cavg]})
+abundanceData.sort_values(("conc", "cavg"), ascending = False, inplace = True)
+
+#read data from experiments
+tempData = read_csv("{}Temp_conditionDetail.csv".format(resDir))
+phData = read_csv("{}pH_conditionDetail.csv".format(resDir))
+
+#all proteins
+plt.figure(figsize = (9, 6))
+proteinAbundancePlot(abundanceData, phData, tempData)
+plt.savefig("{}plasmaConteration_all.svg".format(resDir))
+
+#persistent proteins
+plt.figure(figsize = (9, 6))
+proteinAbundancePlot(abundanceData, \
+                     phData[np.all(np.isfinite(phData.loc[:, "pH3":"pH9"]), axis = 1)], \
+                     tempData[np.all(np.isfinite(tempData.loc[:, "TempA":"TempE"]), axis = 1)])
+plt.savefig("{}plasmaConteration_omni.svg".format(resDir))
 
 
-labels = ["3", "5", "6_6", "7", "9"]
-proteins = {}
-for e in labels:
-    for r in ["B1", "B2", "B3"]:
-        name = "pH{}_{}".format(e, r)
-        proteins[name] = set(res[np.isfinite(res[name])].index)
+#%%Plasma Proteome Database building
+accRe = re.compile(r"\w+\|(\w+)\|.+")
 
-overlapBarplot(labels, "pH{}_B{}")
-plt.savefig("E:\\RawData\\20161120_NP\\res\\IDoverlappH.svg")
+proteinIDs = [accRe.match(protein[0]).groups()[0] for protein in fasta.read("{}PPD.fasta".format(fastaDir))]
 
-#disulfides
-testSet = mdc2[np.all(np.isfinite(mdc2.loc[:, "pH3":"pH9"]), axis = 1)]
-testSet["TotalC"] = testSet["AAC"].apply(lambda x: x["C"])
-testSet["UnboundC"] = testSet["TotalC"] - testSet["BoundC"].apply(len)
-testSet["BoundC"] = testSet["BoundC"].apply(len)
+#update calmodulin
+proteinIDs.remove("P62158")
+proteinIDs.append("P0DP23")
 
-testSet["Direction"] = testSet["Direction"].astype(str)
-plt.boxplot([z[1].values for z in testSet.groupby("Direction")["UnboundC"]])
-print([z[0] for z in testSet.groupby("Direction")])
+protData = getProteinData(proteinIDs)
+
+dump(protData, open("{}PPD_data.pickle".format(resDir), "wb"))
 
 
-#%%SVM test
-from sklearn.svm import SVC
-clf = SVC(kernel = 'linear')
-X = DataFrame(list(mdc2.loc[(np.all(np.isfinite(mdc2.loc[:, "TempA":"TempE"]), axis = 1)), "AAC"]))
-X.drop("U", inplace = True, axis = 1)
-X.fillna(0, inplace = True)
-Y = mdc2.loc[(np.all(np.isfinite(mdc2.loc[:, "TempA":"TempE"]), axis = 1)), "SigmaFit"].apply(np.isnan).values.astype(int)
+#%%PhysChem
+featureTable, featureDescriptions = parseIndex("{}AAindex.txt".format(resDir))
+#featureTable has only AA indices (544 x 20 matrix)
+#featureDescriptions has description and reference information (544 x 2)
+#both indixed by feature code
 
-clf.fit(X.values, Y)
-print(clf.score(X.values, Y))
-print(DataFrame(clf.coef_ * 100, columns = X.columns))
+#get protein data
+protData = load(open("{}PPD_data.pickle".format(resDir), "rb"))
 
-X = DataFrame(list(mdc2.loc[(np.all(np.isfinite(mdc2.loc[:, "pH3":"pH9"]), axis = 1)), "AAC"]))
-X.drop("U", inplace = True, axis = 1)
-X.fillna(0, inplace = True)
-Y = mdc2.loc[(np.all(np.isfinite(mdc2.loc[:, "pH3":"pH9"]), axis = 1)), "SigmaFit"].apply(np.isnan).values.astype(int)
+#persistent proteins
+phData = read_csv("{}omnipHS.csv".format(resDir))
+tData = read_csv("{}omniTempS.csv".format(resDir))
 
-clf.fit(X.values, Y)
-print(clf.score(X.values, Y))
-print(DataFrame(clf.coef_ * 100, columns = X.columns))
+protData["pH"] = protData["UniprotID"].apply(lambda s: s in phData["UniprotID"].values)
+protData["Temp"] = protData["UniprotID"].apply(lambda s: s in tData["UniprotID"].values)
 
-from SupervisedPCA import SupervisedPCAClassifier
+#create amino acid composition table for each protein, ommiting U
+#since it is not present in Kyoto index
+#Nproteins x 20 matrix
+df = protData[["UniprotID", "AAC"]]
+aacs = DataFrame(df["AAC"].tolist()).drop("U", axis = 1).fillna(0)[featureTable.columns]
 
-spca = SupervisedPCAClassifier()
-spca.fit(X.values, Y)
-pca_data = spca.get_transformed_data(X)
-plt.scatter(pca_data[Y == 1, 0], pca_data[Y == 1, 1], color = 'b')
-plt.scatter(pca_data[Y == 0, 0], pca_data[Y == 0, 1], color = 'r')
+#calculate 544 features for each protein
+#Nproteins x 544 matrix
+Xdata = DataFrame(np.dot(aacs.values, featureTable.values.T) / aacs.values.sum(axis = 1).reshape(-1, 1),\
+          index = df["UniprotID"], columns = featureTable.index)
 
-from sklearn.decomposition import PCA
-pC = PCA(2)
-pca_data = pC.fit_transform(X)
-plt.scatter(pca_data[Y == 1, 0], pca_data[Y == 1, 1], color = 'b')
-plt.scatter(pca_data[Y == 0, 0], pca_data[Y == 0, 1], color = 'r')
+#Permutation test is running as a separate multithreaded process
+#the code is in shrinkTest.py
+#it results in a p-value estimation for each of 544 protein features in both experiments
+#Preparing the input for it
+dump(Xdata, open("{}pcData.pickle".format(resDir), "wb"))#proteins properties
 
-#%%Poster plots
-#Identified and quantified proteins
-z = read_csv("E:\\RawData\\20161120_NP\\res\\data.csv", sep = "\t")
+protData[["pH", "Temp"]].to_csv("{}omniIndex.csv".format(resDir), index = False)#persistent proteins index
 
-plt.figure(figsize = (8,5))
-zz = z[z["Exp"] == "P"]
-i = 0
-label = []
-for c, g in zz.groupby("Condition"):
-    plt.bar(range(i, i + len(g)), g["IDs"], align = "center", color = "teal", alpha = 0.6, label = "Identified")
-    plt.bar(range(i, i + len(g)), g["Quant"], align = "center", color = "olive", alpha = 0.6, label = "Quantified")
-    i += len(g) + 1
-    label += ["1", "2", "3", "C", ""]
+#load permutation test results
+shrink = load(open("{}permResultShrink.pickle".format(resDir), "rb"))
 
-plt.tick_params(axis='both', which='both', left='off', right='off' , bottom='off', top='off', labelleft='on')
-plt.xlim(-1, i - 1)
-plt.legend()
-plt.ylabel("Numeber of proteins")
-plt.xticks(range(0,i), label)
-plt.savefig("E:\\RawData\\20161120_NP\\res\\pHOverview.svg")
+for case in ["pH", "Temp"]:
+    Ydata = protData[case].values
+    #shrinkage mesure
+    spanCorona = np.percentile(Xdata.loc[Ydata], [10,90], axis = 0)
+    spanAll = np.percentile(Xdata, [10,90], axis = 0)
+    shrink["Shrinkage({})".format(case)] = (spanCorona[1,] - spanCorona[0,])/(spanAll[1,] - spanAll[0,])
+    #Benjamini-Hochberg correction
+    shrink["FDR({})".format(case)] = multipletests(shrink[case], method="fdr_bh")[1]
+    #special column used by Cytoscape to color only significant nodes
+    shrink["Color({})".format(case)] = 1.0
+    shrink.loc[shrink["FDR({})".format(case)] < 0.005, "Color({})".format(case)] = \
+        shrink.loc[shrink["FDR({})".format(case)] < 0.005, "Shrinkage({})".format(case)]
+    
+    shrink.rename({case: "p-value({})".format(case)}, axis = "columns", inplace = True)
+
+#reordering columns
+shrink = shrink[["{}({})".format(a, b) for b in ["pH", "Temp"]
+                                        for a in ["Shrinkage", "p-value", "FDR", "Color"]]]
+
+#Prepare the table with node information for Cytoscape
+classNames = {"A": "Alpha and turn propensities",
+              "B": "Beta propensity",
+              "C": "Composition",
+              "H": "Hydrophobicity",
+              "O": "Other properties",
+              "P": "Physicochemical properties",
+              "nan": "Undefined"}
+
+#reading protein properties from Tomii et al.
+featureClasses = read_csv("{}AAindex_classes.txt".format(resDir), sep = "  ", header = None, engine = "python")
+featureClasses.columns = ["Class", "Name", "Description"]
+featureClasses["Class"] = featureClasses["Class"].str.slice(0, 1)
+featureClasses.drop("Description", axis=1, inplace = True)
+featureClasses.index = featureClasses["Name"]
+
+#mapping the properties to results
+shrink["Class"] = featureClasses.reindex(shrink.index)["Class"].apply(lambda s: classNames[str(s)])
+
+concat([shrink, featureDescriptions], axis = 1).to_excel("{}shrinkTest.xlsx".format(resDir))
+
+#Data for minimum spanning tree
+#pairwise distances between all 544 protein properties
+dd = 1 - np.abs(np.corrcoef(featureTable.values))
+cyImport = DataFrame([[featureTable.index[ind1], featureTable.index[ind2], dd[ind1, ind2]]
+             for ind1 in range(dd.shape[0]) for ind2 in range(dd.shape[1]) if ind1 < ind2],
+                columns = ["Source", "Target", "Distance"])
+
+cyImport["Correlation"] = 1 - cyImport["Distance"]
+
+cyImport.to_csv("{}AAcorr.csv".format(resDir), index = False)
