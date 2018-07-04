@@ -54,32 +54,32 @@ var styles = [ {
       "shape" : "triangle"
     }
   }, {
-    "selector" : "node[Color_pH_ > 1.58243101]",
+    "selector" : "node[Color_pH > 1.58243101]",
     "css" : {
       "background-color" : "rgb(178,24,43)"
     }
   }, {
-    "selector" : "node[Color_pH_ = 1.58243101]",
+    "selector" : "node[Color_pH = 1.58243101]",
     "css" : {
       "background-color" : "rgb(255,0,0)"
     }
   }, {
-    "selector" : "node[Color_pH_ > 1][Color_pH_ < 1.58243101]",
+    "selector" : "node[Color_pH > 1][Color_pH < 1.58243101]",
     "css" : {
-      "background-color" : "mapData(Color_pH_,1,1.58243101,rgb(153,153,153),rgb(255,0,0))"
+      "background-color" : "mapData(Color_pH,1,1.58243101,rgb(153,153,153),rgb(255,0,0))"
     }
   }, {
-    "selector" : "node[Color_pH_ > 0.62535073][Color_pH_ < 1]",
+    "selector" : "node[Color_pH > 0.62535073][Color_pH < 1]",
     "css" : {
-      "background-color" : "mapData(Color_pH_,0.62535073,1,rgb(0,255,0),rgb(153,153,153))"
+      "background-color" : "mapData(Color_pH,0.62535073,1,rgb(0,255,0),rgb(153,153,153))"
     }
   }, {
-    "selector" : "node[Color_pH_ = 0.62535073]",
+    "selector" : "node[Color_pH = 0.62535073]",
     "css" : {
       "background-color" : "rgb(0,255,0)"
     }
   }, {
-    "selector" : "node[Color_pH_ < 0.62535073]",
+    "selector" : "node[Color_pH < 0.62535073]",
     "css" : {
       "background-color" : "rgb(247,247,247)"
     }
@@ -203,32 +203,32 @@ var styles = [ {
       "shape" : "triangle"
     }
   }, {
-    "selector" : "node[Color_Temp_ > 1.47529729]",
+    "selector" : "node[Color_Temp > 1.47529729]",
     "css" : {
       "background-color" : "rgb(178,24,43)"
     }
   }, {
-    "selector" : "node[Color_Temp_ = 1.47529729]",
+    "selector" : "node[Color_Temp = 1.47529729]",
     "css" : {
       "background-color" : "rgb(255,0,0)"
     }
   }, {
-    "selector" : "node[Color_Temp_ > 1.00000001][Color_Temp_ < 1.47529729]",
+    "selector" : "node[Color_Temp > 1.00000001][Color_Temp < 1.47529729]",
     "css" : {
-      "background-color" : "mapData(Color_Temp_,1.00000001,1.47529729,rgb(153,153,153),rgb(255,0,0))"
+      "background-color" : "mapData(Color_Temp,1.00000001,1.47529729,rgb(153,153,153),rgb(255,0,0))"
     }
   }, {
-    "selector" : "node[Color_Temp_ > 0.59464339][Color_Temp_ < 1.00000001]",
+    "selector" : "node[Color_Temp > 0.59464339][Color_Temp < 1.00000001]",
     "css" : {
-      "background-color" : "mapData(Color_Temp_,0.59464339,1.00000001,rgb(0,255,0),rgb(153,153,153))"
+      "background-color" : "mapData(Color_Temp,0.59464339,1.00000001,rgb(0,255,0),rgb(153,153,153))"
     }
   }, {
-    "selector" : "node[Color_Temp_ = 0.59464339]",
+    "selector" : "node[Color_Temp = 0.59464339]",
     "css" : {
       "background-color" : "rgb(0,255,0)"
     }
   }, {
-    "selector" : "node[Color_Temp_ < 0.59464339]",
+    "selector" : "node[Color_Temp < 0.59464339]",
     "css" : {
       "background-color" : "rgb(247,247,247)"
     }

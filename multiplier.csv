@@ -1,0 +1,545 @@
+ID,M,Class
+ANDN920101,,Physicochemical properties
+ARGP820101,,Hydrophobicity
+ARGP820102,,Hydrophobicity
+ARGP820103,,Hydrophobicity
+BEGF750101,1,Alpha propensity
+BEGF750102,,Hydrophobicity
+BEGF750103,,Alpha and turn propensities
+BHAR880101,,Hydrophobicity
+BIGC670101,,Physicochemical properties
+BIOV880101,,Hydrophobicity
+BIOV880102,,Hydrophobicity
+BROC820101,,Hydrophobicity
+BROC820102,,Hydrophobicity
+BULH740101,,Hydrophobicity
+BULH740102,,Physicochemical properties
+BUNA790101,,Alpha and turn propensities
+BUNA790102,,Physicochemical properties
+BUNA790103,,Alpha and turn propensities
+BURA740101,,Alpha and turn propensities
+BURA740102,,Beta propensity
+CHAM810101,,Other properties
+CHAM820101,,Physicochemical properties
+CHAM820102,,Hydrophobicity
+CHAM830101,,Alpha and turn propensities
+CHAM830102,,Alpha and turn propensities
+CHAM830103,,Physicochemical properties
+CHAM830104,,Other properties
+CHAM830105,,Physicochemical properties
+CHAM830106,,Physicochemical properties
+CHAM830107,,Beta propensity
+CHAM830108,,Composition
+CHOC750101,,Physicochemical properties
+CHOC760101,,Physicochemical properties
+CHOC760102,,Hydrophobicity
+CHOC760103,,Hydrophobicity
+CHOC760104,,Hydrophobicity
+CHOP780101,,Alpha and turn propensities
+CHOP780201,,Alpha and turn propensities
+CHOP780202,1,Beta propensity
+CHOP780203,,Alpha and turn propensities
+CHOP780204,,Hydrophobicity
+CHOP780205,,Alpha and turn propensities
+CHOP780206,,Other properties
+CHOP780207,,Alpha and turn propensities
+CHOP780208,,Beta propensity
+CHOP780209,-1,Beta propensity
+CHOP780210,,Alpha and turn propensities
+CHOP780211,,Alpha and turn propensities
+CHOP780212,,Alpha and turn propensities
+CHOP780213,,Alpha and turn propensities
+CHOP780214,,Other properties
+CHOP780215,1,Turn propensity
+CHOP780216,,Alpha and turn propensities
+CIDH920101,,Hydrophobicity
+CIDH920102,,Hydrophobicity
+CIDH920103,,Hydrophobicity
+CIDH920104,,Hydrophobicity
+CIDH920105,,Hydrophobicity
+COHE430101,,Physicochemical properties
+CRAJ730101,,Alpha and turn propensities
+CRAJ730102,,Beta propensity
+CRAJ730103,1,Turn propensity
+DAWD720101,,Physicochemical properties
+DAYM780101,,Composition
+DAYM780201,,Physicochemical properties
+DESM900101,,Hydrophobicity
+DESM900102,,Hydrophobicity
+EISD840101,,Hydrophobicity
+EISD860101,,Hydrophobicity
+EISD860102,,Hydrophobicity
+EISD860103,,Hydrophobicity
+FASG760101,,Physicochemical properties
+FASG760102,,Hydrophobicity
+FASG760103,,Alpha and turn propensities
+FASG760104,,Alpha and turn propensities
+FASG760105,,Hydrophobicity
+FAUJ830101,,Hydrophobicity
+FAUJ880101,,Physicochemical properties
+FAUJ880102,,Other properties
+FAUJ880103,,Physicochemical properties
+FAUJ880104,,Physicochemical properties
+FAUJ880105,,Physicochemical properties
+FAUJ880106,,Physicochemical properties
+FAUJ880107,,Other properties
+FAUJ880108,,Hydrophobicity
+FAUJ880109,,Hydrophobicity
+FAUJ880110,,Hydrophobicity
+FAUJ880111,,Hydrophobicity
+FAUJ880112,,Hydrophobicity
+FAUJ880113,,Alpha and turn propensities
+FINA770101,,Alpha and turn propensities
+FINA910101,,Hydrophobicity
+FINA910102,,Alpha and turn propensities
+FINA910103,,Hydrophobicity
+FINA910104,,Hydrophobicity
+GARJ730101,,Physicochemical properties
+GEIM800101,,Alpha and turn propensities
+GEIM800102,,Alpha and turn propensities
+GEIM800103,,Alpha and turn propensities
+GEIM800104,,Alpha and turn propensities
+GEIM800105,,Beta propensity
+GEIM800106,,Beta propensity
+GEIM800107,1,Beta propensity
+GEIM800108,,Alpha and turn propensities
+GEIM800109,,Alpha and turn propensities
+GEIM800110,,Beta propensity
+GEIM800111,,Alpha and turn propensities
+GOLD730101,,Hydrophobicity
+GOLD730102,,Physicochemical properties
+GRAR740101,,Hydrophobicity
+GRAR740102,,Hydrophobicity
+GRAR740103,,Physicochemical properties
+GUYH850101,,Hydrophobicity
+HOPA770101,,Hydrophobicity
+HOPT810101,,Hydrophobicity
+HUTJ700101,,Composition
+HUTJ700102,,Physicochemical properties
+HUTJ700103,,Physicochemical properties
+ISOY800101,,Alpha and turn propensities
+ISOY800102,,Beta propensity
+ISOY800103,,Alpha and turn propensities
+ISOY800104,,Alpha and turn propensities
+ISOY800105,,Other properties
+ISOY800106,,Alpha and turn propensities
+ISOY800107,,Hydrophobicity
+ISOY800108,,Other properties
+JANJ780101,,Hydrophobicity
+JANJ780102,,Hydrophobicity
+JANJ780103,,Hydrophobicity
+JANJ790101,,Hydrophobicity
+JANJ790102,,Hydrophobicity
+JOND750101,,Hydrophobicity
+JOND750102,,Hydrophobicity
+JOND920101,,Composition
+JOND920102,,Physicochemical properties
+JUKT750101,,Composition
+JUNJ780101,,Composition
+KANM800101,,Alpha and turn propensities
+KANM800102,1,Beta propensity
+KANM800103,,Alpha and turn propensities
+KANM800104,,Beta propensity
+KARP850101,,Hydrophobicity
+KARP850102,,Hydrophobicity
+KARP850103,,Composition
+KHAG800101,,Hydrophobicity
+KLEP840101,,Hydrophobicity
+KRIW710101,,Hydrophobicity
+KRIW790101,,Hydrophobicity
+KRIW790102,,Hydrophobicity
+KRIW790103,,Physicochemical properties
+KYTJ820101,,Hydrophobicity
+LAWE840101,,Hydrophobicity
+LEVM760101,,Hydrophobicity
+LEVM760102,,Physicochemical properties
+LEVM760103,,Other properties
+LEVM760104,,Other properties
+LEVM760105,,Physicochemical properties
+LEVM760106,,Physicochemical properties
+LEVM760107,,Physicochemical properties
+LEVM780101,,Alpha and turn propensities
+LEVM780102,,Beta propensity
+LEVM780103,,Alpha and turn propensities
+LEVM780104,,Alpha and turn propensities
+LEVM780105,,Beta propensity
+LEVM780106,,Alpha and turn propensities
+LEWP710101,,Alpha and turn propensities
+LIFS790101,1,Beta propensity
+LIFS790102,,Beta propensity
+LIFS790103,,Beta propensity
+MANP780101,,Hydrophobicity
+MAXF760101,,Alpha and turn propensities
+MAXF760102,,Beta propensity
+MAXF760103,,Other properties
+MAXF760104,,Other properties
+MAXF760105,,Other properties
+MAXF760106,,Alpha and turn propensities
+MCMT640101,,Physicochemical properties
+MEEJ800101,,Hydrophobicity
+MEEJ800102,,Hydrophobicity
+MEEJ810101,,Hydrophobicity
+MEEJ810102,,Hydrophobicity
+MEIH800101,,Hydrophobicity
+MEIH800102,,Hydrophobicity
+MEIH800103,,Hydrophobicity
+MIYS850101,,Hydrophobicity
+NAGK730101,,Alpha and turn propensities
+NAGK730102,,Beta propensity
+NAGK730103,,Alpha and turn propensities
+NAKH900101,,Composition
+NAKH900102,,Composition
+NAKH900103,,Composition
+NAKH900104,,Hydrophobicity
+NAKH900105,,Composition
+NAKH900106,,Hydrophobicity
+NAKH900107,,Composition
+NAKH900108,,Hydrophobicity
+NAKH900109,,Composition
+NAKH900110,,Hydrophobicity
+NAKH900111,,Composition
+NAKH900112,,Composition
+NAKH900113,,Hydrophobicity
+NAKH920101,,Composition
+NAKH920102,,Composition
+NAKH920103,,Composition
+NAKH920104,,Composition
+NAKH920105,,Composition
+NAKH920106,,Composition
+NAKH920107,,Composition
+NAKH920108,,Composition
+NISK800101,,Hydrophobicity
+NISK860101,,Hydrophobicity
+NOZY710101,,Hydrophobicity
+OOBM770101,,Hydrophobicity
+OOBM770102,,Physicochemical properties
+OOBM770103,,Hydrophobicity
+OOBM770104,,Physicochemical properties
+OOBM770105,,Physicochemical properties
+OOBM850101,,Beta propensity
+OOBM850102,,Physicochemical properties
+OOBM850103,,Hydrophobicity
+OOBM850104,,Beta propensity
+OOBM850105,,Hydrophobicity
+PALJ810101,,Alpha and turn propensities
+PALJ810102,,Alpha and turn propensities
+PALJ810103,,Beta propensity
+PALJ810104,1,Beta propensity
+PALJ810105,,Alpha and turn propensities
+PALJ810106,,Alpha and turn propensities
+PALJ810107,,Alpha and turn propensities
+PALJ810108,,Alpha and turn propensities
+PALJ810109,,Alpha and turn propensities
+PALJ810110,1,Beta propensity
+PALJ810111,,Hydrophobicity
+PALJ810112,1,Beta propensity
+PALJ810113,,Alpha and turn propensities
+PALJ810114,,Alpha and turn propensities
+PALJ810115,,Alpha and turn propensities
+PALJ810116,,Alpha and turn propensities
+PARJ860101,,Hydrophobicity
+PLIV810101,,Hydrophobicity
+PONP800101,,Hydrophobicity
+PONP800102,,Hydrophobicity
+PONP800103,,Hydrophobicity
+PONP800104,,Hydrophobicity
+PONP800105,,Hydrophobicity
+PONP800106,,Hydrophobicity
+PONP800107,,Hydrophobicity
+PONP800108,,Hydrophobicity
+PRAM820101,,Hydrophobicity
+PRAM820102,,Other properties
+PRAM820103,,Other properties
+PRAM900101,,Hydrophobicity
+PRAM900102,,Alpha and turn propensities
+PRAM900103,,Beta propensity
+PRAM900104,,Alpha and turn propensities
+PTIO830101,,Alpha and turn propensities
+PTIO830102,1,Beta propensity
+QIAN880101,,Alpha and turn propensities
+QIAN880102,,Alpha and turn propensities
+QIAN880103,,Alpha and turn propensities
+QIAN880104,,Alpha and turn propensities
+QIAN880105,,Alpha and turn propensities
+QIAN880106,,Alpha and turn propensities
+QIAN880107,,Alpha and turn propensities
+QIAN880108,,Alpha and turn propensities
+QIAN880109,,Alpha and turn propensities
+QIAN880110,,Alpha and turn propensities
+QIAN880111,,Alpha and turn propensities
+QIAN880112,,Alpha and turn propensities
+QIAN880113,,Alpha and turn propensities
+QIAN880114,,Hydrophobicity
+QIAN880115,,Hydrophobicity
+QIAN880116,,Hydrophobicity
+QIAN880117,,Alpha and turn propensities
+QIAN880118,,Beta propensity
+QIAN880119,,Beta propensity
+QIAN880120,,Beta propensity
+QIAN880121,1,Beta propensity
+QIAN880122,1,Beta propensity
+QIAN880123,,Physicochemical properties
+QIAN880124,,Physicochemical properties
+QIAN880125,,Physicochemical properties
+QIAN880126,,Hydrophobicity
+QIAN880127,,Hydrophobicity
+QIAN880128,,Hydrophobicity
+QIAN880129,,Alpha and turn propensities
+QIAN880130,1,Turn propensity
+QIAN880131,,Alpha and turn propensities
+QIAN880132,,Alpha and turn propensities
+QIAN880133,,Alpha and turn propensities
+QIAN880134,,Alpha and turn propensities
+QIAN880135,,Alpha and turn propensities
+QIAN880136,,Alpha and turn propensities
+QIAN880137,,Alpha and turn propensities
+QIAN880138,,Alpha and turn propensities
+QIAN880139,,Alpha and turn propensities
+RACS770101,,Hydrophobicity
+RACS770102,,Hydrophobicity
+RACS770103,,Hydrophobicity
+RACS820101,,Hydrophobicity
+RACS820102,,Other properties
+RACS820103,,Hydrophobicity
+RACS820104,1,Turn propensity
+RACS820105,,Composition
+RACS820106,,Other properties
+RACS820107,,Other properties
+RACS820108,,Alpha and turn propensities
+RACS820109,,Other properties
+RACS820110,,Alpha and turn propensities
+RACS820111,,Beta propensity
+RACS820112,,Alpha and turn propensities
+RACS820113,,Other properties
+RACS820114,,Alpha and turn propensities
+RADA880101,,Hydrophobicity
+RADA880102,,Hydrophobicity
+RADA880103,,Physicochemical properties
+RADA880104,,Hydrophobicity
+RADA880105,,Hydrophobicity
+RADA880106,,Physicochemical properties
+RADA880107,,Hydrophobicity
+RADA880108,,Hydrophobicity
+RICJ880101,,Other properties
+RICJ880102,,Other properties
+RICJ880103,,Other properties
+RICJ880104,,Hydrophobicity
+RICJ880105,,Hydrophobicity
+RICJ880106,,Hydrophobicity
+RICJ880107,,Alpha and turn propensities
+RICJ880108,,Hydrophobicity
+RICJ880109,1,Alpha propensity
+RICJ880110,1,Alpha propensity
+RICJ880111,,Hydrophobicity
+RICJ880112,,Alpha and turn propensities
+RICJ880113,,Alpha and turn propensities
+RICJ880114,,Alpha and turn propensities
+RICJ880115,,Other properties
+RICJ880116,,Alpha and turn propensities
+RICJ880117,,Alpha and turn propensities
+ROBB760101,,Alpha and turn propensities
+ROBB760102,,Hydrophobicity
+ROBB760103,,Alpha and turn propensities
+ROBB760104,,Alpha and turn propensities
+ROBB760105,,Beta propensity
+ROBB760106,,Beta propensity
+ROBB760107,,Alpha and turn propensities
+ROBB760108,1,Turn propensity
+ROBB760109,,Alpha and turn propensities
+ROBB760110,1,Turn propensity
+ROBB760111,1,Turn propensity
+ROBB760112,,Alpha and turn propensities
+ROBB760113,,Alpha and turn propensities
+ROBB790101,,Hydrophobicity
+ROSG850101,,Physicochemical properties
+ROSG850102,,Hydrophobicity
+ROSM880101,,Hydrophobicity
+ROSM880102,,Hydrophobicity
+ROSM880103,,Hydrophobicity
+SIMZ760101,,Hydrophobicity
+SNEP660101,,Alpha and turn propensities
+SNEP660102,,Hydrophobicity
+SNEP660103,,Physicochemical properties
+SNEP660104,,Alpha and turn propensities
+SUEM840101,,Alpha and turn propensities
+SUEM840102,,Hydrophobicity
+SWER830101,,Hydrophobicity
+TANS770101,,Alpha and turn propensities
+TANS770102,,Alpha and turn propensities
+TANS770103,,Beta propensity
+TANS770104,,Alpha and turn propensities
+TANS770105,,Other properties
+TANS770106,,Hydrophobicity
+TANS770107,,Other properties
+TANS770108,,Hydrophobicity
+TANS770109,,Other properties
+TANS770110,,Alpha and turn propensities
+VASM830101,,Alpha and turn propensities
+VASM830102,,Hydrophobicity
+VASM830103,,Hydrophobicity
+VELV850101,,Hydrophobicity
+VENT840101,,Hydrophobicity
+VHEG790101,,Hydrophobicity
+WARP780101,,Hydrophobicity
+WEBA780101,,Physicochemical properties
+WERD780101,,Hydrophobicity
+WERD780102,,Other properties
+WERD780103,,Hydrophobicity
+WERD780104,,Hydrophobicity
+WOEC730101,,Hydrophobicity
+WOLR810101,,Hydrophobicity
+WOLS870101,,Hydrophobicity
+WOLS870102,,Physicochemical properties
+WOLS870103,,Alpha and turn propensities
+YUTK870101,,Hydrophobicity
+YUTK870102,,Hydrophobicity
+YUTK870103,,Hydrophobicity
+YUTK870104,,Hydrophobicity
+ZASB820101,,Physicochemical properties
+ZIMJ680101,,Hydrophobicity
+ZIMJ680102,,Physicochemical properties
+ZIMJ680103,,Hydrophobicity
+ZIMJ680104,,Hydrophobicity
+ZIMJ680105,,Hydrophobicity
+AURR980101,,Undefined
+AURR980102,,Undefined
+AURR980103,,Undefined
+AURR980104,,Undefined
+AURR980105,,Undefined
+AURR980106,,Undefined
+AURR980107,,Undefined
+AURR980108,,Undefined
+AURR980109,,Undefined
+AURR980110,,Undefined
+AURR980111,,Undefined
+AURR980112,,Undefined
+AURR980113,,Undefined
+AURR980114,,Undefined
+AURR980115,,Undefined
+AURR980116,,Undefined
+AURR980117,,Undefined
+AURR980118,,Undefined
+AURR980119,,Undefined
+AURR980120,,Undefined
+ONEK900101,,Undefined
+ONEK900102,,Undefined
+BAEK050101,,Hydrophobicity
+BASU050101,,Hydrophobicity
+BASU050102,,Hydrophobicity
+BASU050103,,Hydrophobicity
+MUNV940101,,Undefined
+MUNV940102,,Undefined
+CASG920101,,Hydrophobicity
+MUNV940104,,Undefined
+MUNV940105,,Undefined
+WIMW960101,,Undefined
+KIMC930101,,Undefined
+MONM990101,,Undefined
+BLAM930101,,Undefined
+CEDJ970102,,Undefined
+PARS000102,,Undefined
+KUMS000101,,Undefined
+CEDJ970103,,Undefined
+CEDJ970104,,Undefined
+CORJ870101,,Hydrophobicity
+TAKK010101,,Undefined
+FODM020101,,Undefined
+CORJ870102,,Hydrophobicity
+CORJ870103,,Hydrophobicity
+CORJ870107,,Hydrophobicity
+CORJ870108,,Hydrophobicity
+COWR900101,,Hydrophobicity
+NADH010106,,Undefined
+NADH010107,,Undefined
+MONM990201,,Undefined
+KOEP990101,,Undefined
+FASG890101,,Hydrophobicity
+CEDJ970101,,Undefined
+FUKS010109,,Undefined
+FUKS010110,,Undefined
+FUKS010112,,Undefined
+CEDJ970105,,Undefined
+FUKS010101,,Undefined
+FUKS010102,,Undefined
+FUKS010103,,Undefined
+FUKS010104,,Undefined
+FUKS010105,,Undefined
+FUKS010106,,Undefined
+FUKS010107,,Undefined
+FUKS010108,,Undefined
+GEOR030104,1,Alpha propensity
+GUYH850102,,Hydrophobicity
+FUKS010111,,Undefined
+GUYH850103,,Hydrophobicity
+AVBF000101,,Undefined
+AVBF000102,,Undefined
+AVBF000103,,Undefined
+AVBF000104,,Undefined
+AVBF000105,,Undefined
+AVBF000106,,Undefined
+AVBF000107,,Undefined
+AVBF000108,,Undefined
+AVBF000109,,Undefined
+YANJ020101,,Undefined
+MITS020101,,Undefined
+TSAJ990101,,Undefined
+TSAJ990102,,Undefined
+COSI940101,,Undefined
+GUYH850104,,Hydrophobicity
+WILM950101,,Undefined
+WILM950102,,Undefined
+WILM950103,,Undefined
+WILM950104,,Undefined
+JURD980101,,Hydrophobicity
+GUOD860101,,Undefined
+KOEP990102,,Hydrophobicity
+KUHL950101,,Hydrophobicity
+KUMS000102,,Undefined
+KUMS000103,,Undefined
+SUYM030101,,Undefined
+PUNT030101,,Undefined
+KUMS000104,,Undefined
+GEOR030101,,Undefined
+GEOR030102,,Undefined
+GEOR030103,,Undefined
+MIYS990101,,Hydrophobicity
+GEOR030105,,Undefined
+GEOR030106,,Undefined
+GEOR030107,,Undefined
+GEOR030108,,Undefined
+GEOR030109,,Undefined
+MIYS990102,,Hydrophobicity
+MIYS990103,,Hydrophobicity
+MIYS990104,,Hydrophobicity
+MIYS990105,,Hydrophobicity
+HARY940101,,Undefined
+PONJ960101,,Undefined
+DIGM050101,,Undefined
+WOLR790101,,Undefined
+OLSK800101,,Undefined
+KIDA850101,,Undefined
+MUNV940103,-1,Beta propensity
+NADH010101,,Hydrophobicity
+NADH010102,,Hydrophobicity
+GUYH850105,,Undefined
+ROSM880104,,Undefined
+ROSM880105,,Undefined
+JACR890101,,Undefined
+NADH010103,,Hydrophobicity
+BLAS910101,,Undefined
+NADH010104,,Hydrophobicity
+NADH010105,,Hydrophobicity
+PARS000101,,Hydrophobicity
+PONP930101,,Hydrophobicity
+CORJ870104,,Undefined
+CORJ870105,,Undefined
+CORJ870106,,Undefined
+PUNT030102,,Hydrophobicity
+VINM940101,,Hydrophobicity
+VINM940102,,Hydrophobicity
+VINM940103,,Hydrophobicity
+VINM940104,,Hydrophobicity
+ZHOH040101,,Hydrophobicity
+ZHOH040102,,Hydrophobicity
+ENGD860101,,Undefined
+ZHOH040103,,Hydrophobicity

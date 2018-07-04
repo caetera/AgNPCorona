@@ -79,3 +79,15 @@ def proteinAbundancePlot(abundanceData, phData, tempData):
     plt.tick_params(axis='both', which='both', left='off', right='off' , bottom='off', top='off', labelleft='on', labelbottom='on')
     plt.tick_params(axis = 'both', which = 'major', labelsize = 14, pad = 8)
     plt.legend(fontsize=12)
+
+
+def lesseningDirectionPlot(shrink):
+    for cl in ["Alpha propensity", "Beta propensity", "Hydrophobicity", "Turn propensity"]:
+        inx = np.logical_and(shrink["Class"] == cl, shrink["FDR(Temp)"] < 0.005)
+        plt.plot(shrink.loc[inx, "M"] * shrink.loc[inx, "Difference(Temp)"], shrink.loc[inx, "Lessening(Temp)"],
+                 "o", label=cl)
+
+    plt.xlabel("Growth", fontsize = 14)
+    plt.ylabel("Lessening", fontsize = 14)
+    plt.tick_params(axis = 'both', which = 'major', labelsize = 14, pad = 8)
+    plt.legend(fontsize = 12)

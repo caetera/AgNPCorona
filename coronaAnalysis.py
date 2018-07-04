@@ -10,7 +10,7 @@ import re
 import numpy as np
 import pylab as plt
 from coronaHelpers import readPercOut, cleanIDs, getProteinData, parseIndex
-from coronaPlots import proteinAbundancePlot, intersectionPlot, directionPlot
+from coronaPlots import proteinAbundancePlot, intersectionPlot, directionPlot, lesseningDirectionPlot
 from pandas import DataFrame, Series, read_csv, concat
 from collections import Counter
 from pyteomics.pylab_aux import scatter_trend
@@ -18,6 +18,8 @@ from scipy.optimize import curve_fit
 from pyteomics import fasta
 from pickle import dump, load
 from statsmodels.stats.multitest import multipletests
+from statsmodels.nonparametric.smoothers_lowess import lowess
+
 
 #Working directories
 workDir = "E:\\RawData\\20161120_NP\\"
@@ -611,19 +613,22 @@ for case in ["pH", "Temp"]:
     #shrinkage mesure
     spanCorona = np.percentile(Xdata.loc[Ydata], [10,90], axis = 0)
     spanAll = np.percentile(Xdata, [10,90], axis = 0)
-    shrink["Shrinkage({})".format(case)] = (spanCorona[1,] - spanCorona[0,])/(spanAll[1,] - spanAll[0,])
+    medCorona = np.median(Xdata.loc[Ydata], axis = 0)
+    medAll = np.median(Xdata, axis = 0)
+    shrink["Lessening({})".format(case)] = (spanCorona[1,] - spanCorona[0,])/(spanAll[1,] - spanAll[0,])
+    shrink["Difference({})".format(case)] = (medCorona - medAll)/(spanAll[1,] - spanAll[0,])
     #Benjamini-Hochberg correction
     shrink["FDR({})".format(case)] = multipletests(shrink[case], method="fdr_bh")[1]
     #special column used by Cytoscape to color only significant nodes
     shrink["Color({})".format(case)] = 1.0
     shrink.loc[shrink["FDR({})".format(case)] < 0.005, "Color({})".format(case)] = \
-        shrink.loc[shrink["FDR({})".format(case)] < 0.005, "Shrinkage({})".format(case)]
+        shrink.loc[shrink["FDR({})".format(case)] < 0.005, "Lessening({})".format(case)]
     
     shrink.rename({case: "p-value({})".format(case)}, axis = "columns", inplace = True)
 
 #reordering columns
 shrink = shrink[["{}({})".format(a, b) for b in ["pH", "Temp"]
-                                        for a in ["Shrinkage", "p-value", "FDR", "Color"]]]
+                                        for a in ["Difference", "Lessening", "p-value", "FDR", "Color"]]]
 
 #Prepare the table with node information for Cytoscape
 classNames = {"A": "Alpha and turn propensities",
@@ -656,3 +661,83 @@ cyImport = DataFrame([[featureTable.index[ind1], featureTable.index[ind2], dd[in
 cyImport["Correlation"] = 1 - cyImport["Distance"]
 
 cyImport.to_csv("{}AAcorr.csv".format(resDir), index = False)
+
+
+#refined assesment of significantly changing properties
+#shrinkdata contains column with refined classes for significantly changing properties
+#and column M that is 1 or -1
+#  1 - direct changes - i.e. bigger value corresponds to increase in property;
+# -1 - reverse changes - i.e. bigger value corresponds to decrease in property
+shrinkdata = read_csv("{}multiplier.csv".format(resDir))
+shrinkdata.index = shrinkdata["ID"]
+shrink["Class"] = shrinkdata["Class"]
+#M includes only alpha, turn, and beta propensities that are significantly changing
+shrink["M"] = shrinkdata["M"]
+
+#for hydrophobicity M can be calculated knowing the difference between index of I (hydrophobic)
+#and D (hydrophilic)
+ind = np.logical_and(shrink["Class"] == "Hydrophobicity", shrink["FDR(Temp)"] < 0.005)
+shrink.loc[ind, "M"] = (((featureTable.loc[ind, "I"] - featureTable.loc[ind, "D"]) > 0).astype(int) - 0.5)*2
+
+plt.figure(figsize=(9,6))
+lesseningDirectionPlot(shrink)
+plt.savefig("{}Direction_Lessening.svg".format(resDir))
+
+#plots for span comparison
+for experiment in ["Temp", "pH"]:
+    fdrCol = "FDR({})".format(experiment)
+    lessCol = "Lessening({})".format(experiment)
+    
+    topFeatures = shrink[shrink[fdrCol] < 0.005]
+    Ydata = protData[experiment].values
+    
+    #boxplots
+    for feature, row in topFeatures.iterrows():
+        plt.figure(figsize = (8, 6))
+        plt.boxplot([Xdata.loc[:, feature], Xdata.loc[Ydata, feature]], whis = [10, 90])
+        plt.title(featureDescriptions.loc[feature, "Description"], ha = "center", va = "bottom", 
+                  fontsize = 12)
+        plt.figtext(0.5, 0.5, "Lessening = {:.2f}\n\np-val(BH) = {:.2e}".format(row[lessCol],\
+                                                                                row[fdrCol]),\
+                                                        va="center", ha="center", fontsize = 12)
+        plt.xticks([1, 2], ["Background", "Persistent"])
+        plt.tick_params(axis = 'both', which = 'major', labelsize = 12, pad = 8)
+        plt.tight_layout()
+        if row[lessCol] > 1:
+            plt.savefig("{}lessening{}/broad_boxplot_{}.png".format(resDir, experiment, feature))
+        else:
+            plt.savefig("{}lessening{}/narrow_boxplot_{}.png".format(resDir, experiment, feature))
+        
+        plt.close()
+    
+    #histograms with smoothing
+    for feature, row in topFeatures.iterrows():
+        plt.figure(figsize = (8, 6))
+        dAll = Xdata.loc[:, feature].values.reshape(-1, 1)
+        dBound = Xdata.loc[Ydata, feature].values.reshape(-1, 1)
+    
+        values, edges = np.histogram(dAll, 50, density=True)
+        centers = (edges[1:] + edges[:-1])/2
+        lowessFit = lowess(values, centers, is_sorted=True, frac=0.2, it=0)
+        plt.plot(lowessFit[:, 0], lowessFit[:, 1], label="Background")
+        values, edges = np.histogram(dBound, edges,density=True)
+        lowessFit = lowess(values, centers, is_sorted=True, frac=0.2, it=0)
+        plt.plot(lowessFit[:, 0], lowessFit[:, 1], label="Persistent")
+        plt.title(featureDescriptions.loc[feature, "Description"], ha = "center", va = "bottom")
+        plt.figtext(0.1, 0.5, "Lessening = {:.2f}\n\np-val(BH) = {:.2e}".format(row[lessCol],\
+                                                                                row[fdrCol]),\
+                                                            va="center", ha="left", fontsize = 12)
+        
+        plt.title(featureDescriptions.loc[feature, "Description"], ha = "center", va = "bottom", fontsize = 12)
+        plt.tick_params(axis='both', which='both', left='off', right='off' , bottom='off',
+                        top='off', labelleft='off', labelbottom='on')
+        plt.tick_params(axis = 'both', which = 'major', labelsize = 12, pad = 8)
+        plt.tight_layout()
+        plt.legend(fontsize = 12)
+        
+        if row[lessCol] > 1:
+            plt.savefig("{}lessening{}/broad_hist_{}.png".format(resDir, experiment, feature))
+        else:
+            plt.savefig("{}lessening{}/narrow_hist_{}.png".format(resDir, experiment, feature))
+        
+        plt.close()

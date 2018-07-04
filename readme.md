@@ -10,6 +10,8 @@
 
 **msgf.mods** - Modification file used by MSGF+
 
+**multiplier.csv** - Direction coefficients for alpha-, beta-, and turn propensities
+
 **msgf-percolator-lfq.knwf** - KNIME workflow that executes OpenMS tools for label-free quantification
 
 **parsePPD.py** - Script to convert Plasma Proteome Database to FASTA format and extract concentration data
