@@ -68,17 +68,17 @@ def proteinAbundancePlot(abundanceData, phData, tempData):
     indT = np.logical_and(abundanceData["inTemp"], ~ abundanceData["inPH"])
     indP = np.logical_and(~ abundanceData["inTemp"], abundanceData["inPH"])
     
-    plt.semilogy(abundanceData["N"], abundanceData[("conc", "cavg")], "-", ms = 2, color = "k", alpha = 0.5, label = "Reported concentration")
-    plt.semilogy(abundanceData.loc[indT, "N"], abundanceData.loc[indT, ("conc", "cavg")], "o", ms = 4, label = "Temperature", alpha = 0.4)
-    plt.semilogy(abundanceData.loc[indP, "N"], abundanceData.loc[indP, ("conc", "cavg")], "o", ms = 4, label = "pH", alpha = 0.4)
-    plt.semilogy(abundanceData.loc[indBoth, "N"], abundanceData.loc[indBoth, ("conc", "cavg")], "o", ms = 4, label = "Both", alpha = 0.4)
-    plt.xlabel("Gene", fontsize = 14)
-    plt.ylabel("Concentration in plasma, mg/mL", fontsize = 14)
+    plt.semilogy(abundanceData["N"], abundanceData[("conc", "cavg")], "-", lw = 2.5, color = "k", alpha = 0.6, label = "Reported concentration")
+    plt.semilogy(abundanceData.loc[indT, "N"], abundanceData.loc[indT, ("conc", "cavg")], "o", ms = 7, label = "Temperature", alpha = 0.5)
+    plt.semilogy(abundanceData.loc[indP, "N"], abundanceData.loc[indP, ("conc", "cavg")], "o", ms = 7, label = "pH", alpha = 0.5)
+    plt.semilogy(abundanceData.loc[indBoth, "N"], abundanceData.loc[indBoth, ("conc", "cavg")], "o", ms = 7, label = "Both", alpha = 0.5)
+    plt.xlabel("Gene", fontsize = 15)
+    plt.ylabel("Concentration in plasma, mg/mL", fontsize = 15)
     sel = np.linspace(0, abundanceData.shape[0] - 1, 25).astype(int)
     plt.xticks(sel, abundanceData.index[sel], va = "top", ha = "center", rotation = "vertical")
     plt.tick_params(axis='both', which='both', left='off', right='off' , bottom='off', top='off', labelleft='on', labelbottom='on')
-    plt.tick_params(axis = 'both', which = 'major', labelsize = 14, pad = 8)
-    plt.legend(fontsize=12)
+    plt.tick_params(axis = 'both', which = 'major', labelsize = 15, pad = 8)
+    plt.legend(fontsize=15)
 
 
 def lesseningDirectionPlot(shrink):

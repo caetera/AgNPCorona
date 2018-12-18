@@ -153,6 +153,62 @@ def processExperiment(name):
     d.set_index("ID", verify_integrity = True, inplace = True)
     d.to_csv("{}{}_raw.csv".format(workDir, name))      
 
+def calcCoverage(proteinSequence, peptides):
+    """
+    Calculate protein coverage in percent and number of peptides
+    
+    NOTE: peptides are provided as IDs from percolator, i.e. contain modification
+    information - [UNIMOD:(digits)]
+    """
+    #found aminoacids
+    found = np.repeat(0, len(proteinSequence))
+    
+    numpeptides = 0
+    
+    for peptide in peptides:
+        numpeptides += 1
+        for match in re.finditer(re.sub(r"\[UNIMOD:(\d+)\]", "", peptide), proteinSequence):
+            found[match.start():match.end()] = 1
+    
+    return found.mean() * 100, numpeptides
+
+def exportProteinData(resData, name):
+    """
+    Export data for Protein table (supplementary material for paper)
+    """
+    #calculate protein data
+    res = resData.copy(deep=True)
+    res["CleanID"] = [cleanIDs(x) for x in res.index]
+    mdc = res[res["CleanID"] != ""].merge(getProteinData(res.loc[res["CleanID"] != "", "CleanID"]),\
+                                         left_on = "CleanID", right_on = "UniprotID", how = "inner")
+    
+    #calculate coverage and number of peptides
+    #load percolator results
+    peptides, proteins = readPercOut("{}{}.pout.xml".format(workDir, name))[1:]
+    
+    #convert percolator IDs to UniprotIDs
+    proteins["CleanID"] = [cleanIDs(x) for x in proteins["ID"]]
+    #merging peptide data
+    mdc = mdc.merge(proteins, how="inner", on="CleanID")
+    
+    #identified peptides
+    ipeptidesIDs = set(peptides.loc[peptides["q-value"] < 0.01, "ID"])
+    
+    #add coverage and number of peptides
+    mdc[["Coverage(%)", "#Peptides"]] = DataFrame(mdc.apply(lambda r: calcCoverage(r["Sequence"],\
+       filter(lambda pID: pID in ipeptidesIDs, r["Peptides"])), axis=1).values.tolist())
+    
+    #prepare for export
+    mdc["GOComponent"] = mdc["GOComponent"].str.join(", ")
+    mdc["GOFunction"] = mdc["GOFunction"].str.join(", ")
+    mdc["GOProcess"] = mdc["GOProcess"].str.join(", ")
+    
+    datacols = list(filter(lambda s: s.startswith(name[:4]), mdc.columns))
+    newcols = ["UniprotID", "GeneID"] + datacols +\
+    ["Name", "GOComponent", "GOFunction", "GOProcess", "Coverage(%)", "#Peptides", "MW", "pI", "GRAVY", "q-value"]
+    
+    mdc[newcols].to_excel("{}{}_allProteins.xlsx".format(resDir, name), index=False)
+
 def getTopN(resT, labels, N):
     """
     Extract N most abundant proteins for each conditon
@@ -239,6 +295,9 @@ processExperiment("pH")
 md = read_csv("{}pH_raw.csv".format(workDir))
 md.set_index("ID", drop = True, inplace = True)
 
+#Correct the accesion number of Calmodulin (was changed in Uniprot after the search)
+md.index = map(lambda s: 'sp|P0DP23|CALM_HUMAN' if s == 'sp|P62158|CALM_HUMAN'  else s, md.index)
+
 #remove empty lines
 md = md[md.apply(lambda x: np.any(np.isfinite(x)), axis = 1)]
 
@@ -248,6 +307,9 @@ for n in ["pH{}_{}".format(c,r) for c in ["3", "5", "6_6", "7", "9"] for r in ["
         res[n] = \
             md.loc[:, ["{}T{}".format(n, i) for i in "123"]]\
             .apply(lambda x: np.nansum(x)/sum(np.logical_and(np.isfinite(x), x != 0)), axis = 1)
+
+#export protein data
+exportProteinData(res, "pH")
 
 #subtract protein levels in control samples
 res.fillna(0, inplace = True)
@@ -260,9 +322,6 @@ for c in ["3", "5", "6_6", "7", "9"]:
 #remove negative values (after subtraction)
 res[res <= 0] = np.nan
 res = res[res.apply(lambda x: np.any(np.isfinite(x)), axis = 1)]
-
-#Correct the accesion number of Calmodulin (was changed in Uniprot after the search)
-res.index = map(lambda s: 'sp|P0DP23|CALM_HUMAN' if s == 'sp|P62158|CALM_HUMAN'  else s, res.index)
 
 #retrieve the properties and map them to proteins
 res["CleanID"] = [cleanIDs(x) for x in res.index]
@@ -279,8 +338,7 @@ for c in ["3", "5", "6_6", "7", "9"]:
             res.loc[:, ["pH{}_{}".format(c, r) for r in ["B1", "B2", "B3"]]]\
             .apply(lambda x: np.nansum(x)/sum(np.logical_and(np.isfinite(x), x != 0)), axis = 1)
 
-#Correct the accesion number of Calmodulin (was changed in Uniprot after the search)
-res2.index = map(lambda s: 'sp|P0DP23|CALM_HUMAN' if s == 'sp|P62158|CALM_HUMAN'  else s, res2.index)
+#extract UniprotID
 res2["CleanID"] = [cleanIDs(x) for x in res2.index]
 
 #Quantification overlap
@@ -301,6 +359,9 @@ mdc2.to_csv("{}pH_conditionDetail.csv".format(resDir), index = False)
 md = read_csv("{}Temperature_raw.csv".format(workDir))
 md.set_index("ID", drop = True, inplace = True)
 
+#Correct the accesion number of Calmodulin (was changed in Uniprot after the search)
+md.index = map(lambda s: 'sp|P0DP23|CALM_HUMAN' if s == 'sp|P62158|CALM_HUMAN'  else s, md.index)
+
 #remove empty lines
 md = md[md.apply(lambda x: np.any(np.isfinite(x)), axis = 1)]
 
@@ -310,6 +371,9 @@ for n in ["Temp{}{}".format(c,r) for c in "ABCDE" for r in "123C"]:
         res[n] = \
             md.loc[:, ["{}_{}".format(n, i) for i in "123"]]\
             .apply(lambda x: np.nansum(x)/sum(np.logical_and(np.isfinite(x), x != 0)), axis = 1)
+
+#export protein data
+exportProteinData(res, "Temperature")
 
 #subtract protein levels in control samples
 res.fillna(0, inplace = True)
@@ -322,9 +386,6 @@ for c in "ABCDE":
 #remove negative values (after subtraction)
 res[res <= 0] = np.nan
 res = res[res.apply(lambda x: np.any(np.isfinite(x)), axis = 1)]
-
-#Correct the accesion number of Calmodulin (was changed in Uniprot after the search)
-res.index = map(lambda s: 'sp|P0DP23|CALM_HUMAN' if s == 'sp|P62158|CALM_HUMAN'  else s, res.index)
 
 #retrieve the properties and map them to proteins
 res["CleanID"] = [cleanIDs(x) for x in res.index]
@@ -340,8 +401,7 @@ for c in "ABCDE":
             res.loc[:, ["Temp{}{}".format(c, r) for r in "123"]]\
             .apply(lambda x: np.nansum(x)/sum(np.logical_and(np.isfinite(x), x != 0)), axis = 1)
 
-#Correct the accesion number of Calmodulin (was changed in Uniprot after the search)
-res2.index = map(lambda s: 'sp|P0DP23|CALM_HUMAN' if s == 'sp|P62158|CALM_HUMAN'  else s, res2.index)
+#extract UniprotID
 res2["CleanID"] = [cleanIDs(x) for x in res2.index]
 
 #Quantification overlap
