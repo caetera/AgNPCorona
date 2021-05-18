@@ -22,4 +22,4 @@
 
 ## Publication
 
-In progress
+V. Gorshkov, J. A. Bubis, E. M. Solovyeva, M. V. Gorshkov, and F. Kjeldsen *Protein corona formed on silver nanoparticles in blood plasma is highly selective and resistant to physicochemical changes of the solution* ***Environ. Sci.: Nano***, **2019**, 6, 1089-1098; DOI: [10.1039/C8EN01054D](https://pubs.rsc.org/fa/content/articlehtml/2019/en/c8en01054d)
